@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled')),
+    room_url TEXT,
     notes TEXT,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -74,53 +75,78 @@ CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(booking_date);
 -- Student profiles: Users can read all profiles, but only update their own
 ALTER TABLE student_profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view student profiles" ON student_profiles;
 CREATE POLICY "Anyone can view student profiles" ON student_profiles
     FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Users can insert their own profile" ON student_profiles;
 CREATE POLICY "Users can insert their own profile" ON student_profiles
     FOR INSERT WITH CHECK (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON student_profiles;
 CREATE POLICY "Users can update their own profile" ON student_profiles
     FOR UPDATE USING (auth.uid() = id);
 
 -- Enrollments: Students can view their own, admins can manage all
 ALTER TABLE enrollments ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Students can view their enrollments" ON enrollments;
 CREATE POLICY "Students can view their enrollments" ON enrollments
     FOR SELECT USING (auth.uid() = student_id);
 
+DROP POLICY IF EXISTS "Admins can manage all enrollments" ON enrollments;
 CREATE POLICY "Admins can manage all enrollments" ON enrollments
     FOR ALL USING (auth.jwt() ->>'role' = 'admin');
 
 -- Lesson progress: Students can view and update their own
 ALTER TABLE lesson_progress ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Students can view their progress" ON lesson_progress;
 CREATE POLICY "Students can view their progress" ON lesson_progress
     FOR SELECT USING (auth.uid() = student_id);
 
+DROP POLICY IF EXISTS "Students can update their progress" ON lesson_progress;
 CREATE POLICY "Students can update their progress" ON lesson_progress
     FOR ALL USING (auth.uid() = student_id);
 
 -- Tutor availability: Public read, admin write
 ALTER TABLE tutor_availability ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view tutor availability" ON tutor_availability;
 CREATE POLICY "Anyone can view tutor availability" ON tutor_availability
     FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Admins can manage availability" ON tutor_availability;
 CREATE POLICY "Admins can manage availability" ON tutor_availability
     FOR ALL USING (auth.jwt() ->>'role' = 'admin');
 
 -- Bookings: Students can view/create their own, tutors can view theirs
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Students can view their bookings" ON bookings;
 CREATE POLICY "Students can view their bookings" ON bookings
     FOR SELECT USING (auth.uid() = student_id);
 
+DROP POLICY IF EXISTS "Students can create bookings" ON bookings;
 CREATE POLICY "Students can create bookings" ON bookings
     FOR INSERT WITH CHECK (auth.uid() = student_id);
 
+DROP POLICY IF EXISTS "Students can update their bookings" ON bookings;
 CREATE POLICY "Students can update their bookings" ON bookings
     FOR UPDATE USING (auth.uid() = student_id);
 
+DROP POLICY IF EXISTS "Tutors can view their bookings" ON bookings;
+CREATE POLICY "Tutors can view their bookings" ON bookings
+    FOR SELECT USING (auth.uid() = tutor_id);
+
+DROP POLICY IF EXISTS "Tutors can update their bookings" ON bookings;
+CREATE POLICY "Tutors can update their bookings" ON bookings
+    FOR UPDATE USING (auth.uid() = tutor_id);
+
+DROP POLICY IF EXISTS "Students can update their bookings" ON bookings;
+CREATE POLICY "Students can update their bookings" ON bookings
+    FOR UPDATE USING (auth.uid() = student_id);
+
+DROP POLICY IF EXISTS "Admins can manage all bookings" ON bookings;
 CREATE POLICY "Admins can manage all bookings" ON bookings
     FOR ALL USING (auth.jwt() ->>'role' = 'admin');

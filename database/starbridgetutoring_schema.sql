@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS active_sessions (
     tutor_id UUID REFERENCES tutors(id) ON DELETE CASCADE,
     current_slide_id UUID REFERENCES slides(id),
     code TEXT UNIQUE NOT NULL,  -- 6-character join code
+    room_url TEXT,              -- Unique Daily.co room URL for this session
     is_active BOOLEAN DEFAULT true,
     started_at TIMESTAMP DEFAULT NOW(),
     ended_at TIMESTAMP

@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Users, BookOpen, LogOut, Loader2 } from 'lucide-react';
+import { Plus, Users, BookOpen, LogOut, Loader2, Calendar } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import CreateClassModal from '../components/Teacher/CreateClassModal';
 import StartSessionModal from '../components/Teacher/StartSessionModal';
 import TeacherLessonsTab from '../components/Teacher/TeacherLessonsTab';
 import TeacherClassesTab from '../components/Teacher/TeacherClassesTab';
+import TeacherBookingsTab from '../components/Teacher/TeacherBookingsTab';
 
 const TeacherDashboard = () => {
     const navigate = useNavigate();
@@ -95,6 +96,7 @@ const TeacherDashboard = () => {
                     {[
                         { key: 'lessons', label: 'My Lessons', icon: BookOpen },
                         { key: 'classes', label: 'My Classes', icon: Users },
+                        { key: 'bookings', label: 'My Bookings', icon: Calendar },
                     ].map(({ key, label, icon: Icon }) => (
                         <button
                             key={key}
@@ -129,6 +131,9 @@ const TeacherDashboard = () => {
                                 setClasses={setClasses}
                                 setShowCreateClassModal={setShowCreateClassModal}
                             />
+                        )}
+                        {activeTab === 'bookings' && (
+                            <TeacherBookingsTab user={user} />
                         )}
                     </>
                 )}

@@ -20,8 +20,6 @@ const ClassroomStudent = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submittedSlideIds, setSubmittedSlideIds] = useState(new Set());
 
-    const DEV_ROOM_URL = "https://starbridgetutoring.daily.co/demo-classroom";
-
     const {
         callObject,
         isJoined,
@@ -73,7 +71,12 @@ const ClassroomStudent = () => {
                 setSlides(slidesData || []);
 
                 // Join logic for WebRTC
-                joinRoom(DEV_ROOM_URL, guestName);
+                if (sessionData.room_url) {
+                    joinRoom(sessionData.room_url, guestName);
+                } else {
+                    console.warn("No dynamic room URL found, falling back to demo room");
+                    joinRoom("https://starbridgetutoring.daily.co/demo-classroom", guestName);
+                }
 
                 // Supabase Realtime Subscription targeting active_sessions table
                 channel = supabase

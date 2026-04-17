@@ -26,6 +26,7 @@ import LessonBuilder from './pages/LessonBuilder';
 import ClassroomHost from './pages/ClassroomHost';
 import ClassroomStudent from './pages/ClassroomStudent';
 import JoinClass from './pages/JoinClass';
+import MeetingRoom from './pages/MeetingRoom';
 
 function App() {
     return (
@@ -98,6 +99,7 @@ function App() {
                             element={<ClassroomStudent />}
                         />
                         <Route path="/join" element={<JoinClass />} />
+                        <Route path="/meeting/:bookingId" element={<MeetingRoom />} />
 
                         {/* Student routes without Layout */}
                         <Route path="/student/login" element={<StudentLogin />} />

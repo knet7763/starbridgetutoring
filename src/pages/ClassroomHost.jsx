@@ -27,7 +27,6 @@ const ClassroomHost = () => {
 
     // Hardcode a Daily.co room URL for the MVP, or fetch it from session/db
     // In production, you'd generate a unique room for each session via an API function
-    const DEV_ROOM_URL = "https://starbridgetutoring.daily.co/demo-classroom";
 
     const {
         callObject,
@@ -115,7 +114,12 @@ const ClassroomHost = () => {
 
             // Join the Daily WebRTC room as soon as we have session data
             if (sessionData) {
-                joinRoom(DEV_ROOM_URL, "Teacher");
+                if (sessionData.room_url) {
+                    joinRoom(sessionData.room_url, "Teacher");
+                } else {
+                    console.warn("No dynamic room URL found, falling back to demo room");
+                    joinRoom("https://starbridgetutoring.daily.co/demo-classroom", "Teacher");
+                }
             }
 
             // Fetch slides

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStudentAuth } from '../contexts/StudentAuthContext';
 import { api } from '../services/api';
-import { BookOpen, LogOut, User, CheckCircle, Clock, Calendar } from 'lucide-react';
+import { BookOpen, LogOut, User, CheckCircle, Clock, Calendar, Video } from 'lucide-react';
 import Button from '../components/Button';
 
 const StudentDashboard = () => {
@@ -226,6 +226,14 @@ const StudentDashboard = () => {
                                                 <div className="text-right">
                                                     <p className="font-medium text-gray-900">{new Date(booking.booking_date).toLocaleDateString()}</p>
                                                     <p className="text-sm text-gray-600">{booking.start_time} - {booking.end_time}</p>
+                                                    {booking.room_url && (
+                                                        <button
+                                                            onClick={() => navigate(`/meeting/${booking.id}`)}
+                                                            className="mt-2 text-sm bg-primary text-white px-4 py-1.5 rounded-lg font-medium hover:bg-yellow-600 inline-flex items-center gap-1.5"
+                                                        >
+                                                            <Video size={14} /> Join Meeting
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}

@@ -37,7 +37,16 @@ export const api = {
     sessions: {
         getActiveById: (id) => supabase.from('active_sessions').select('*, lessons(*)').eq('id', id).single(),
         getByCode: (code) => supabase.from('active_sessions').select('id, is_active').eq('code', code).single(),
-        start: (data) => supabase.from('active_sessions').insert([data]).select().single(),
+        start: async (data) => {
+            const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-daily-room');
+            let room_url = null;
+            if (!edgeError && edgeData) {
+                room_url = edgeData.room_url;
+            } else {
+                console.error("Error creating Daily room via Edge Function:", edgeError || "Unknown error");
+            }
+            return supabase.from('active_sessions').insert([{ ...data, room_url }]).select().single();
+        },
         end: (id) => supabase.from('active_sessions').update({ is_active: false, ended_at: new Date().toISOString() }).eq('id', id),
         updateCurrentSlide: (id, slideId) => supabase.from('active_sessions').update({ current_slide_id: slideId }).eq('id', id),
     },
@@ -86,7 +95,24 @@ export const api = {
             .eq('tutor_id', tutorId)
             .eq('booking_date', date)
             .neq('status', 'cancelled'),
+        getByTutorId: (tutorId) => supabase
+            .from('bookings')
+            .select('*, students:student_id(name)')
+            .eq('tutor_id', tutorId)
+            .order('booking_date', { ascending: false }),
         create: (data) => supabase.from('bookings').insert([data]),
+        update: (id, data) => supabase.from('bookings').update(data).eq('id', id),
+        confirmWithRoom: async (id) => {
+            const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-daily-room');
+            let room_url = null;
+            if (!edgeError && edgeData) {
+                room_url = edgeData.room_url;
+            } else {
+                console.error("Error creating Daily room via Edge Function:", edgeError || "Unknown error");
+                throw new Error("Failed to create video room");
+            }
+            return supabase.from('bookings').update({ status: 'confirmed', room_url }).eq('id', id);
+        }
     },
     tutorAvailability: {
         getByTutorId: (tutorId) => supabase

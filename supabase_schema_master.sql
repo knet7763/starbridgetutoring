@@ -282,6 +282,8 @@ BEGIN
     BEGIN DROP POLICY IF EXISTS "Students can view their bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Students can create bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Students can update their bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
+    BEGIN DROP POLICY IF EXISTS "Tutors can view their bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
+    BEGIN DROP POLICY IF EXISTS "Tutors can update their bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Admins can manage all bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
 END $$;
 
@@ -336,6 +338,12 @@ CREATE POLICY "Students can create bookings" ON bookings
 
 CREATE POLICY "Students can update their bookings" ON bookings
     FOR UPDATE USING (auth.uid() = student_id);
+
+CREATE POLICY "Tutors can view their bookings" ON bookings
+    FOR SELECT USING (auth.uid() = tutor_id);
+
+CREATE POLICY "Tutors can update their bookings" ON bookings
+    FOR UPDATE USING (auth.uid() = tutor_id);
 
 CREATE POLICY "Admins can manage all bookings" ON bookings
     FOR ALL USING (auth.jwt() ->>'role' = 'admin');
