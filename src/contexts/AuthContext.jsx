@@ -16,7 +16,27 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        let mounted = true;
+
+        const initializeAuth = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!mounted) return;
+
+                const isTeacherSession = localStorage.getItem('sb_role') === 'teacher';
+                setUser(isTeacherSession && session?.user ? session.user : null);
+            } catch (error) {
+                console.error('Auth initialization error:', error);
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        };
+
+        initializeAuth();
+
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (!mounted) return;
+
             const isTeacherSession = localStorage.getItem('sb_role') === 'teacher';
             setUser(isTeacherSession && session?.user ? session.user : null);
             
@@ -26,7 +46,10 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
     }, []);
 
     const signIn = async (email, password) => {

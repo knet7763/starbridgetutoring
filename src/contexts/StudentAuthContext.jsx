@@ -48,25 +48,49 @@ export const StudentAuthProvider = ({ children }) => {
     };
 
     useEffect(() => {
+        let mounted = true;
+
+        const initializeAuth = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!mounted) return;
+
+                const isStudentSession = localStorage.getItem('sb_role') === 'student';
+                if (isStudentSession && session?.user) {
+                    await loadStudentProfile(session.user.id);
+                } else {
+                    setStudent(null);
+                    setLoading(false);
+                }
+            } catch (error) {
+                console.error('Student auth initialization error:', error);
+                if (mounted) setLoading(false);
+            }
+        };
+
+        initializeAuth();
+
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (!mounted) return;
+
             const isStudentSession = localStorage.getItem('sb_role') === 'student';
             
             if (isStudentSession && session?.user) {
-                // If it's a student session, load the profile
                 await loadStudentProfile(session.user.id);
             } else {
-                // If not a student session or no user, stop loading immediately
                 setStudent(null);
                 setLoading(false);
                 
-                // Clear marker if signed out
                 if (event === 'SIGNED_OUT') {
                     localStorage.removeItem('sb_role');
                 }
             }
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
     }, []);
 
     const signUp = async (email, password, fullName, gradeLevel, parentEmail) => {
