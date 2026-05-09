@@ -12,7 +12,7 @@ const Navbar = () => {
 
     const { user: teacher, signOut: teacherSignOut, loading: authLoading } = useAuth();
     const { student, signOut: studentSignOut, loading: studentLoading } = useStudentAuth();
-    const loading = authLoading || studentLoading;
+    const isAuthLoading = authLoading || studentLoading;
 
     const navigation = [
         { name: 'Home', href: '/' },
@@ -64,35 +64,35 @@ const Navbar = () => {
                             </Link>
                         ))}
                         <div className="flex items-center space-x-4 ml-4">
-                            {!loading && (
-                                student ? (
-                                    <>
-                                        <Link to="/student/dashboard" className="text-sm font-medium text-primary hover:text-secondary">
-                                            Student Dashboard
-                                        </Link>
-                                        <button onClick={handleSignOut} className="text-sm font-medium text-gray-600 hover:text-red-500 transition-colors">
-                                            Sign Out
-                                        </button>
-                                    </>
-                                ) : teacher ? (
-                                    <>
-                                        <Link to="/teacher/dashboard" className="text-sm font-medium text-primary hover:text-secondary">
-                                            Teacher Dashboard
-                                        </Link>
-                                        <button onClick={handleSignOut} className="text-sm font-medium text-gray-600 hover:text-red-500 transition-colors">
-                                            Sign Out
-                                        </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-primary">
-                                            Log in
-                                        </Link>
-                                        <Button to="/book-trial" variant="primary" className="!px-4 !py-2 text-sm">
-                                            Book Free Trial
-                                        </Button>
-                                    </>
-                                )
+                            {isAuthLoading ? (
+                                <div className="h-8 w-24 bg-gray-100 animate-pulse rounded-lg"></div>
+                            ) : student ? (
+                                <>
+                                    <Link to="/student/dashboard" className="text-sm font-medium text-primary hover:text-secondary">
+                                        Student Dashboard
+                                    </Link>
+                                    <button onClick={handleSignOut} className="text-sm font-medium text-gray-600 hover:text-red-500 transition-colors">
+                                        Sign Out
+                                    </button>
+                                </>
+                            ) : teacher ? (
+                                <>
+                                    <Link to="/teacher/dashboard" className="text-sm font-medium text-primary hover:text-secondary">
+                                        Teacher Dashboard
+                                    </Link>
+                                    <button onClick={handleSignOut} className="text-sm font-medium text-gray-600 hover:text-red-500 transition-colors">
+                                        Sign Out
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-primary">
+                                        Log in
+                                    </Link>
+                                    <Button to="/book-trial" variant="primary" className="!px-4 !py-2 text-sm">
+                                        Book Free Trial
+                                    </Button>
+                                </>
                             )}
                         </div>
                     </div>
@@ -129,7 +129,7 @@ const Navbar = () => {
                             </Link>
                         ))}
                         <div className="pt-4 pb-4 border-t border-gray-200">
-                            {!loading && (
+                            {!isAuthLoading && (
                                 student ? (
                                     <div className="flex flex-col px-4 space-y-3">
                                         <Link
