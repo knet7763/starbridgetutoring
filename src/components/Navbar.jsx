@@ -10,8 +10,9 @@ const Navbar = () => {
     const location = useLocation();
     const navigate = useNavigate();
 
-    const { user: teacher, signOut: teacherSignOut } = useAuth();
-    const { student, signOut: studentSignOut } = useStudentAuth();
+    const { user: teacher, signOut: teacherSignOut, loading: authLoading } = useAuth();
+    const { student, signOut: studentSignOut, loading: studentLoading } = useStudentAuth();
+    const loading = authLoading || studentLoading;
 
     const navigation = [
         { name: 'Home', href: '/' },
@@ -63,33 +64,35 @@ const Navbar = () => {
                             </Link>
                         ))}
                         <div className="flex items-center space-x-4 ml-4">
-                            {student ? (
-                                <>
-                                    <Link to="/student/dashboard" className="text-sm font-medium text-primary hover:text-secondary">
-                                        Student Dashboard
-                                    </Link>
-                                    <button onClick={handleSignOut} className="text-sm font-medium text-gray-600 hover:text-red-500 transition-colors">
-                                        Sign Out
-                                    </button>
-                                </>
-                            ) : teacher ? (
-                                <>
-                                    <Link to="/teacher/dashboard" className="text-sm font-medium text-primary hover:text-secondary">
-                                        Teacher Dashboard
-                                    </Link>
-                                    <button onClick={handleSignOut} className="text-sm font-medium text-gray-600 hover:text-red-500 transition-colors">
-                                        Sign Out
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-primary">
-                                        Log in
-                                    </Link>
-                                    <Button to="/book-trial" variant="primary" className="!px-4 !py-2 text-sm">
-                                        Book Free Trial
-                                    </Button>
-                                </>
+                            {!loading && (
+                                student ? (
+                                    <>
+                                        <Link to="/student/dashboard" className="text-sm font-medium text-primary hover:text-secondary">
+                                            Student Dashboard
+                                        </Link>
+                                        <button onClick={handleSignOut} className="text-sm font-medium text-gray-600 hover:text-red-500 transition-colors">
+                                            Sign Out
+                                        </button>
+                                    </>
+                                ) : teacher ? (
+                                    <>
+                                        <Link to="/teacher/dashboard" className="text-sm font-medium text-primary hover:text-secondary">
+                                            Teacher Dashboard
+                                        </Link>
+                                        <button onClick={handleSignOut} className="text-sm font-medium text-gray-600 hover:text-red-500 transition-colors">
+                                            Sign Out
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-primary">
+                                            Log in
+                                        </Link>
+                                        <Button to="/book-trial" variant="primary" className="!px-4 !py-2 text-sm">
+                                            Book Free Trial
+                                        </Button>
+                                    </>
+                                )
                             )}
                         </div>
                     </div>
@@ -126,56 +129,58 @@ const Navbar = () => {
                             </Link>
                         ))}
                         <div className="pt-4 pb-4 border-t border-gray-200">
-                            {student ? (
-                                <div className="flex flex-col px-4 space-y-3">
-                                    <Link
-                                        to="/student/dashboard"
-                                        className="block text-base font-medium text-primary"
-                                        onClick={() => setIsOpen(false)}
-                                    >
-                                        Student Dashboard
-                                    </Link>
-                                    <button
-                                        onClick={handleSignOut}
-                                        className="block text-base font-medium text-left text-gray-600 hover:text-red-500"
-                                    >
-                                        Sign Out
-                                    </button>
-                                </div>
-                            ) : teacher ? (
-                                <div className="flex flex-col px-4 space-y-3">
-                                    <Link
-                                        to="/teacher/dashboard"
-                                        className="block text-base font-medium text-primary"
-                                        onClick={() => setIsOpen(false)}
-                                    >
-                                        Teacher Dashboard
-                                    </Link>
-                                    <button
-                                        onClick={handleSignOut}
-                                        className="block text-base font-medium text-left text-gray-600 hover:text-red-500"
-                                    >
-                                        Sign Out
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="flex items-center px-4 space-x-4">
-                                    <Link
-                                        to="/login"
-                                        className="block text-base font-medium text-gray-500 hover:text-gray-800"
-                                        onClick={() => setIsOpen(false)}
-                                    >
-                                        Log in
-                                    </Link>
-                                    <Button
-                                        to="/book-trial"
-                                        variant="primary"
-                                        className="w-full justify-center"
-                                        onClick={() => setIsOpen(false)}
-                                    >
-                                        Book Free Trial
-                                    </Button>
-                                </div>
+                            {!loading && (
+                                student ? (
+                                    <div className="flex flex-col px-4 space-y-3">
+                                        <Link
+                                            to="/student/dashboard"
+                                            className="block text-base font-medium text-primary"
+                                            onClick={() => setIsOpen(false)}
+                                        >
+                                            Student Dashboard
+                                        </Link>
+                                        <button
+                                            onClick={handleSignOut}
+                                            className="block text-base font-medium text-left text-gray-600 hover:text-red-500"
+                                        >
+                                            Sign Out
+                                        </button>
+                                    </div>
+                                ) : teacher ? (
+                                    <div className="flex flex-col px-4 space-y-3">
+                                        <Link
+                                            to="/teacher/dashboard"
+                                            className="block text-base font-medium text-primary"
+                                            onClick={() => setIsOpen(false)}
+                                        >
+                                            Teacher Dashboard
+                                        </Link>
+                                        <button
+                                            onClick={handleSignOut}
+                                            className="block text-base font-medium text-left text-gray-600 hover:text-red-500"
+                                        >
+                                            Sign Out
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center px-4 space-x-4">
+                                        <Link
+                                            to="/login"
+                                            className="block text-base font-medium text-gray-500 hover:text-gray-800"
+                                            onClick={() => setIsOpen(false)}
+                                        >
+                                            Log in
+                                        </Link>
+                                        <Button
+                                            to="/book-trial"
+                                            variant="primary"
+                                            className="w-full justify-center"
+                                            onClick={() => setIsOpen(false)}
+                                        >
+                                            Book Free Trial
+                                        </Button>
+                                    </div>
+                                )
                             )}
                         </div>
                     </div>
