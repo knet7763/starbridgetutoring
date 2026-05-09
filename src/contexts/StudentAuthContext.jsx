@@ -145,7 +145,7 @@ export const StudentAuthProvider = ({ children }) => {
         setStudent({ ...student, ...updates });
     };
 
-    const value = {
+    const value = React.useMemo(() => ({
         student,
         loading,
         profileMissing,
@@ -153,7 +153,7 @@ export const StudentAuthProvider = ({ children }) => {
         signIn,
         signOut,
         updateProfile,
-    };
+    }), [student, loading, profileMissing]);
 
     return (
         <StudentAuthContext.Provider value={value}>
