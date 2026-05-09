@@ -93,6 +93,7 @@ export const StudentAuthProvider = ({ children }) => {
     };
 
     const signOut = async () => {
+        localStorage.removeItem('sb_role');
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
         setStudent(null);
