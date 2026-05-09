@@ -16,15 +16,21 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check active session
+        // Check active session on mount
         supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null);
+            // Only treat this as a teacher session if they logged in via the teacher portal
+            const isTeacherSession = localStorage.getItem('sb_role') === 'teacher';
+            setUser(isTeacherSession && session?.user ? session.user : null);
             setLoading(false);
         });
 
-        // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
+            const isTeacherSession = localStorage.getItem('sb_role') === 'teacher';
+            setUser(isTeacherSession && session?.user ? session.user : null);
+            if (!session) {
+                // On logout, clear the role marker
+                localStorage.removeItem('sb_role');
+            }
             setLoading(false);
         });
 
@@ -32,24 +38,22 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const signIn = async (email, password) => {
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (!error) {
+            // Mark that this session was started via the teacher login portal
+            localStorage.setItem('sb_role', 'teacher');
+        }
         return { data, error };
     };
 
     const signOut = async () => {
+        localStorage.removeItem('sb_role');
         const { error } = await supabase.auth.signOut();
+        setUser(null);
         return { error };
     };
 
-    const value = {
-        user,
-        loading,
-        signIn,
-        signOut,
-    };
+    const value = { user, loading, signIn, signOut };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

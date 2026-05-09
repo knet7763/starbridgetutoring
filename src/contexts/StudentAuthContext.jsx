@@ -44,12 +44,13 @@ export const StudentAuthProvider = ({ children }) => {
                 .from('student_profiles')
                 .select('*')
                 .eq('id', userId)
-                .single();
+                .maybeSingle(); // Use maybeSingle() — returns null instead of error when row doesn't exist
 
             if (error) throw error;
-            setStudent(data);
+            setStudent(data ?? null);
         } catch (error) {
             console.error('Error loading student profile:', error);
+            setStudent(null);
         } finally {
             setLoading(false);
         }
@@ -77,12 +78,17 @@ export const StudentAuthProvider = ({ children }) => {
     };
 
     const signIn = async (email, password) => {
+        // Mark this session as a student session to prevent conflict with AuthContext
+        localStorage.setItem('sb_role', 'student');
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
         });
 
-        if (error) throw error;
+        if (error) {
+            localStorage.removeItem('sb_role');
+            throw error;
+        }
         return data;
     };
 
