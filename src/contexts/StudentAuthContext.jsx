@@ -14,40 +14,31 @@ export const useStudentAuth = () => {
 export const StudentAuthProvider = ({ children }) => {
     const [student, setStudent] = useState(null);
     const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        // Check active session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user) {
-                loadStudentProfile(session.user.id);
-            } else {
-                setLoading(false);
-            }
-        });
-
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            if (session?.user) {
-                loadStudentProfile(session.user.id);
-            } else {
-                setStudent(null);
-                setLoading(false);
-            }
-        });
-
-        return () => subscription.unsubscribe();
-    }, []);
+    const [profileMissing, setProfileMissing] = useState(false);
 
     const loadStudentProfile = async (userId) => {
+        if (!userId) {
+            setStudent(null);
+            setLoading(false);
+            return;
+        }
+
         try {
             const { data, error } = await supabase
                 .from('student_profiles')
                 .select('*')
                 .eq('id', userId)
-                .maybeSingle(); // Use maybeSingle() — returns null instead of error when row doesn't exist
+                .maybeSingle();
 
             if (error) throw error;
-            setStudent(data ?? null);
+            
+            if (data) {
+                setStudent(data);
+                setProfileMissing(false);
+            } else {
+                setStudent(null);
+                setProfileMissing(true);
+            }
         } catch (error) {
             console.error('Error loading student profile:', error);
             setStudent(null);
@@ -55,6 +46,38 @@ export const StudentAuthProvider = ({ children }) => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            const isStudentSession = localStorage.getItem('sb_role') === 'student';
+            
+            if (isStudentSession && session?.user) {
+                await loadStudentProfile(session.user.id);
+            } else {
+                setStudent(null);
+                setLoading(false);
+            }
+        };
+
+        checkSession();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            const isStudentSession = localStorage.getItem('sb_role') === 'student';
+            
+            if (isStudentSession && session?.user) {
+                await loadStudentProfile(session.user.id);
+            } else {
+                setStudent(null);
+                setLoading(false);
+                if (!session) {
+                    localStorage.removeItem('sb_role');
+                }
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
 
     const signUp = async (email, password, fullName, gradeLevel, parentEmail) => {
         const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -70,15 +93,10 @@ export const StudentAuthProvider = ({ children }) => {
         });
 
         if (authError) throw authError;
-
-        // Note: The student profile is now created automatically via a Database Trigger
-        // bypassing RLS violations regardless of email confirmation settings.
-
         return authData;
     };
 
     const signIn = async (email, password) => {
-        // Mark this session as a student session to prevent conflict with AuthContext
         localStorage.setItem('sb_role', 'student');
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
@@ -115,6 +133,7 @@ export const StudentAuthProvider = ({ children }) => {
     const value = {
         student,
         loading,
+        profileMissing,
         signUp,
         signIn,
         signOut,
