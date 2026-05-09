@@ -64,9 +64,7 @@ const Navbar = () => {
                             </Link>
                         ))}
                         <div className="flex items-center space-x-4 ml-4">
-                            {isAuthLoading ? (
-                                <div className="h-8 w-24 bg-gray-100 animate-pulse rounded-lg"></div>
-                            ) : student ? (
+                            {student ? (
                                 <>
                                     <Link to="/student/dashboard" className="text-sm font-medium text-primary hover:text-secondary">
                                         Student Dashboard
@@ -84,6 +82,8 @@ const Navbar = () => {
                                         Sign Out
                                     </button>
                                 </>
+                            ) : isAuthLoading ? (
+                                <div className="h-8 w-24 bg-gray-100 animate-pulse rounded-lg"></div>
                             ) : (
                                 <>
                                     <Link to="/login" className="text-sm font-medium text-gray-600 hover:text-primary">
@@ -129,58 +129,60 @@ const Navbar = () => {
                             </Link>
                         ))}
                         <div className="pt-4 pb-4 border-t border-gray-200">
-                            {!isAuthLoading && (
-                                student ? (
-                                    <div className="flex flex-col px-4 space-y-3">
-                                        <Link
-                                            to="/student/dashboard"
-                                            className="block text-base font-medium text-primary"
-                                            onClick={() => setIsOpen(false)}
-                                        >
-                                            Student Dashboard
-                                        </Link>
-                                        <button
-                                            onClick={handleSignOut}
-                                            className="block text-base font-medium text-left text-gray-600 hover:text-red-500"
-                                        >
-                                            Sign Out
-                                        </button>
-                                    </div>
-                                ) : teacher ? (
-                                    <div className="flex flex-col px-4 space-y-3">
-                                        <Link
-                                            to="/teacher/dashboard"
-                                            className="block text-base font-medium text-primary"
-                                            onClick={() => setIsOpen(false)}
-                                        >
-                                            Teacher Dashboard
-                                        </Link>
-                                        <button
-                                            onClick={handleSignOut}
-                                            className="block text-base font-medium text-left text-gray-600 hover:text-red-500"
-                                        >
-                                            Sign Out
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center px-4 space-x-4">
-                                        <Link
-                                            to="/login"
-                                            className="block text-base font-medium text-gray-500 hover:text-gray-800"
-                                            onClick={() => setIsOpen(false)}
-                                        >
-                                            Log in
-                                        </Link>
-                                        <Button
-                                            to="/book-trial"
-                                            variant="primary"
-                                            className="w-full justify-center"
-                                            onClick={() => setIsOpen(false)}
-                                        >
-                                            Book Free Trial
-                                        </Button>
-                                    </div>
-                                )
+                            {student ? (
+                                <div className="flex flex-col px-4 space-y-3">
+                                    <Link
+                                        to="/student/dashboard"
+                                        className="block text-base font-medium text-primary"
+                                        onClick={() => setIsOpen(false)}
+                                    >
+                                        Student Dashboard
+                                    </Link>
+                                    <button
+                                        onClick={handleSignOut}
+                                        className="block text-base font-medium text-left text-gray-600 hover:text-red-500"
+                                    >
+                                        Sign Out
+                                    </button>
+                                </div>
+                            ) : teacher ? (
+                                <div className="flex flex-col px-4 space-y-3">
+                                    <Link
+                                        to="/teacher/dashboard"
+                                        className="block text-base font-medium text-primary"
+                                        onClick={() => setIsOpen(false)}
+                                    >
+                                        Teacher Dashboard
+                                    </Link>
+                                    <button
+                                        onClick={handleSignOut}
+                                        className="block text-base font-medium text-left text-gray-600 hover:text-red-500"
+                                    >
+                                        Sign Out
+                                    </button>
+                                </div>
+                            ) : isAuthLoading ? (
+                                <div className="px-4 py-2">
+                                    <div className="h-6 w-32 bg-gray-100 animate-pulse rounded"></div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center px-4 space-x-4">
+                                    <Link
+                                        to="/login"
+                                        className="block text-base font-medium text-gray-500 hover:text-gray-800"
+                                        onClick={() => setIsOpen(false)}
+                                    >
+                                        Log in
+                                    </Link>
+                                    <Button
+                                        to="/book-trial"
+                                        variant="primary"
+                                        className="w-full justify-center"
+                                        onClick={() => setIsOpen(false)}
+                                    >
+                                        Book Free Trial
+                                    </Button>
+                                </div>
                             )}
                         </div>
                     </div>

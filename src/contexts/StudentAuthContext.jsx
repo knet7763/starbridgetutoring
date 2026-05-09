@@ -33,7 +33,8 @@ export const StudentAuthProvider = ({ children }) => {
             if (error) throw error;
             
             if (data) {
-                setStudent(data);
+                // Only update if the content has changed to prevent re-render loops
+                setStudent(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
                 setProfileMissing(false);
             } else {
                 setStudent(null);

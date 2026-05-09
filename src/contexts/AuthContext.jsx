@@ -38,7 +38,10 @@ export const AuthProvider = ({ children }) => {
             if (!mounted) return;
 
             const isTeacherSession = localStorage.getItem('sb_role') === 'teacher';
-            setUser(isTeacherSession && session?.user ? session.user : null);
+            const newUser = isTeacherSession && session?.user ? session.user : null;
+            
+            // Only update if the user ID has changed to prevent re-render loops
+            setUser(prev => (prev?.id === newUser?.id ? prev : newUser));
             
             if (event === 'SIGNED_OUT') {
                 localStorage.removeItem('sb_role');
