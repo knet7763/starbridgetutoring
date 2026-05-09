@@ -16,19 +16,11 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check active session on mount
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            // Only treat this as a teacher session if they logged in via the teacher portal
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             const isTeacherSession = localStorage.getItem('sb_role') === 'teacher';
             setUser(isTeacherSession && session?.user ? session.user : null);
-            setLoading(false);
-        });
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            const isTeacherSession = localStorage.getItem('sb_role') === 'teacher';
-            setUser(isTeacherSession && session?.user ? session.user : null);
-            if (!session) {
-                // On logout, clear the role marker
+            
+            if (event === 'SIGNED_OUT') {
                 localStorage.removeItem('sb_role');
             }
             setLoading(false);
