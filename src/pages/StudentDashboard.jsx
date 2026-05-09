@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStudentAuth } from '../contexts/StudentAuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { BookOpen, LogOut, User, CheckCircle, Clock, Calendar, Video } from 'lucide-react';
 import Button from '../components/Button';
 
 const StudentDashboard = () => {
-    const { student, signOut } = useStudentAuth();
+    const { student, signOut } = useAuth();
     const navigate = useNavigate();
     const [enrollments, setEnrollments] = useState([]);
     const [lessonProgress, setLessonProgress] = useState([]);

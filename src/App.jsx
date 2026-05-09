@@ -1,7 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
-import { StudentAuthProvider } from './contexts/StudentAuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProtectedStudentRoute from './components/ProtectedStudentRoute';
 import Layout from './components/Layout';
@@ -31,93 +30,90 @@ import MeetingRoom from './pages/MeetingRoom';
 function App() {
     return (
         <AuthProvider>
-            <StudentAuthProvider>
-                <Router>
-                    <Routes>
-                        {/* Public routes with Layout */}
-                        <Route path="/" element={<Layout><Home /></Layout>} />
-                        <Route path="/subjects" element={<Layout><Subjects /></Layout>} />
-                        <Route path="/tutors" element={<Layout><Tutors /></Layout>} />
-                        <Route path="/lessons" element={<Layout><Lessons /></Layout>} />
-                        <Route path="/pricing" element={<Layout><Pricing /></Layout>} />
-                        <Route path="/how-it-works" element={<Layout><HowItWorks /></Layout>} />
-                        <Route path="/about" element={<Layout><About /></Layout>} />
-                        <Route path="/contact" element={<Layout><Contact /></Layout>} />
-                        <Route path="/login" element={<Layout><Login /></Layout>} />
-                        <Route path="/book-trial" element={<Layout><BookTrial /></Layout>} />
+            <Router>
+                <Routes>
+                    {/* Public routes with Layout */}
+                    <Route path="/" element={<Layout><Home /></Layout>} />
+                    <Route path="/subjects" element={<Layout><Subjects /></Layout>} />
+                    <Route path="/tutors" element={<Layout><Tutors /></Layout>} />
+                    <Route path="/lessons" element={<Layout><Lessons /></Layout>} />
+                    <Route path="/pricing" element={<Layout><Pricing /></Layout>} />
+                    <Route path="/how-it-works" element={<Layout><HowItWorks /></Layout>} />
+                    <Route path="/about" element={<Layout><About /></Layout>} />
+                    <Route path="/contact" element={<Layout><Contact /></Layout>} />
+                    <Route path="/login" element={<Layout><Login /></Layout>} />
+                    <Route path="/book-trial" element={<Layout><BookTrial /></Layout>} />
 
-                        {/* Phase 3: Real booking for authenticated students */}
-                        <Route
-                            path="/book-session/:tutorId"
-                            element={
-                                <ProtectedStudentRoute>
-                                    <BookSession />
-                                </ProtectedStudentRoute>
-                            }
-                        />
+                    {/* Phase 3: Real booking for authenticated students */}
+                    <Route
+                        path="/book-session/:tutorId"
+                        element={
+                            <ProtectedStudentRoute>
+                                <BookSession />
+                            </ProtectedStudentRoute>
+                        }
+                    />
 
-                        {/* Admin routes without Layout */}
-                        <Route path="/admin/login" element={<AdminLogin />} />
-                        <Route
-                            path="/admin/dashboard"
-                            element={
-                                <ProtectedRoute>
-                                    <AdminDashboard />
-                                </ProtectedRoute>
-                            }
-                        />
+                    {/* Admin routes without Layout */}
+                    <Route path="/admin/login" element={<AdminLogin />} />
+                    <Route
+                        path="/admin/dashboard"
+                        element={
+                            <ProtectedRoute>
+                                <AdminDashboard />
+                            </ProtectedRoute>
+                        }
+                    />
 
-                        {/* Teacher/Tutor Routes */}
-                        <Route
-                            path="/teacher/dashboard"
-                            element={
-                                <ProtectedRoute>
-                                    <TeacherDashboard />
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/teacher/lesson/:lessonId"
-                            element={
-                                <ProtectedRoute>
-                                    <LessonBuilder />
-                                </ProtectedRoute>
-                            }
-                        />
+                    {/* Teacher/Tutor Routes */}
+                    <Route
+                        path="/teacher/dashboard"
+                        element={
+                            <ProtectedRoute>
+                                <TeacherDashboard />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/teacher/lesson/:lessonId"
+                        element={
+                            <ProtectedRoute>
+                                <LessonBuilder />
+                            </ProtectedRoute>
+                        }
+                    />
 
-                        {/* Classroom Routes */}
-                        <Route
-                            path="/classroom/host/:sessionId"
-                            element={
-                                <ProtectedRoute>
-                                    <ClassroomHost />
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/classroom/join/:sessionId"
-                            element={<ClassroomStudent />}
-                        />
-                        <Route path="/join" element={<JoinClass />} />
-                        <Route path="/meeting/:bookingId" element={<MeetingRoom />} />
+                    {/* Classroom Routes */}
+                    <Route
+                        path="/classroom/host/:sessionId"
+                        element={
+                            <ProtectedRoute>
+                                <ClassroomHost />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/classroom/join/:sessionId"
+                        element={<ClassroomStudent />}
+                    />
+                    <Route path="/join" element={<JoinClass />} />
+                    <Route path="/meeting/:bookingId" element={<MeetingRoom />} />
 
-                        {/* Student routes without Layout */}
-                        <Route path="/student/login" element={<StudentLogin />} />
-                        <Route path="/student/signup" element={<StudentSignup />} />
-                        <Route
-                            path="/student/dashboard"
-                            element={
-                                <ProtectedStudentRoute>
-                                    <StudentDashboard />
-                                </ProtectedStudentRoute>
-                            }
-                        />
-                    </Routes>
-                </Router>
-            </StudentAuthProvider>
+                    {/* Student routes without Layout */}
+                    <Route path="/student/login" element={<StudentLogin />} />
+                    <Route path="/student/signup" element={<StudentSignup />} />
+                    <Route
+                        path="/student/dashboard"
+                        element={
+                            <ProtectedStudentRoute>
+                                <StudentDashboard />
+                            </ProtectedStudentRoute>
+                        }
+                    />
+                </Routes>
+            </Router>
         </AuthProvider>
     );
 }
 
 export default App;
-

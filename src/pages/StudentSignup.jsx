@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useStudentAuth } from '../contexts/StudentAuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { BookOpen, Mail, Lock, User, GraduationCap, Users } from 'lucide-react';
 
 const StudentSignup = () => {
     const navigate = useNavigate();
-    const { signUp } = useStudentAuth();
+    const { signUp } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 

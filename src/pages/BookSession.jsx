@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { useStudentAuth } from '../contexts/StudentAuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Calendar as CalendarIcon, Clock, CheckCircle } from 'lucide-react';
 import Button from '../components/Button';
 
 const BookSession = () => {
     const { tutorId } = useParams();
-    const { student } = useStudentAuth();
+    const { student } = useAuth();
     const navigate = useNavigate();
     const [tutor, setTutor] = useState(null);
     const [availability, setAvailability] = useState([]);

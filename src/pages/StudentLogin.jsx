@@ -1,22 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useStudentAuth } from '../contexts/StudentAuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { BookOpen, Mail, Lock } from 'lucide-react';
 
 const StudentLogin = () => {
-    const navigate = useNavigate();
-    const { signIn } = useStudentAuth();
-    const [loading, setLoading] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-
-    const [formData, setFormData] = useState({
-        email: '',
-        password: '',
-    });
-
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+    const { signIn } = useAuth();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -24,10 +17,11 @@ const StudentLogin = () => {
         setLoading(true);
 
         try {
-            await signIn(formData.email, formData.password);
+            const { error: signInError } = await signIn(email, password, 'student');
+            if (signInError) throw signInError;
             navigate('/student/dashboard');
         } catch (err) {
-            setError('Invalid email or password');
+            setError(err.message || 'Failed to sign in');
         } finally {
             setLoading(false);
         }
@@ -70,8 +64,8 @@ const StudentLogin = () => {
                                     name="email"
                                     type="email"
                                     required
-                                    value={formData.email}
-                                    onChange={handleChange}
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
                                     className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                                     placeholder="student@example.com"
                                 />
@@ -89,8 +83,8 @@ const StudentLogin = () => {
                                     name="password"
                                     type="password"
                                     required
-                                    value={formData.password}
-                                    onChange={handleChange}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
                                     className="pl-10 w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                                     placeholder="••••••••"
                                 />

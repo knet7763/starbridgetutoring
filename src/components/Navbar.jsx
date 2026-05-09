@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, BookOpen } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useStudentAuth } from '../contexts/StudentAuthContext';
 import Button from './Button';
 
 const Navbar = () => {
@@ -10,9 +9,9 @@ const Navbar = () => {
     const location = useLocation();
     const navigate = useNavigate();
 
-    const { user: teacher, signOut: teacherSignOut, loading: authLoading } = useAuth();
-    const { student, signOut: studentSignOut, loading: studentLoading } = useStudentAuth();
-    const isAuthLoading = authLoading || studentLoading;
+    const { user, student, signOut, loading } = useAuth();
+    const isTeacher = !!user && !student; // Simple logic to distinguish
+    const isAuthLoading = loading;
 
     const navigation = [
         { name: 'Home', href: '/' },
@@ -35,8 +34,7 @@ const Navbar = () => {
     };
 
     const handleSignOut = async () => {
-        if (teacher) await teacherSignOut();
-        if (student) await studentSignOut();
+        await signOut();
         navigate('/');
         setIsOpen(false);
     };
@@ -73,7 +71,7 @@ const Navbar = () => {
                                         Sign Out
                                     </button>
                                 </>
-                            ) : teacher ? (
+                            ) : isTeacher ? (
                                 <>
                                     <Link to="/teacher/dashboard" className="text-sm font-medium text-primary hover:text-secondary">
                                         Teacher Dashboard
@@ -145,22 +143,22 @@ const Navbar = () => {
                                         Sign Out
                                     </button>
                                 </div>
-                            ) : teacher ? (
-                                <div className="flex flex-col px-4 space-y-3">
-                                    <Link
-                                        to="/teacher/dashboard"
-                                        className="block text-base font-medium text-primary"
-                                        onClick={() => setIsOpen(false)}
-                                    >
-                                        Teacher Dashboard
-                                    </Link>
-                                    <button
-                                        onClick={handleSignOut}
-                                        className="block text-base font-medium text-left text-gray-600 hover:text-red-500"
-                                    >
-                                        Sign Out
-                                    </button>
-                                </div>
+                                ) : isTeacher ? (
+                                    <div className="flex flex-col px-4 space-y-3">
+                                        <Link
+                                            to="/teacher/dashboard"
+                                            className="block text-base font-medium text-primary"
+                                            onClick={() => setIsOpen(false)}
+                                        >
+                                            Teacher Dashboard
+                                        </Link>
+                                        <button
+                                            onClick={handleSignOut}
+                                            className="block text-base font-medium text-left text-gray-600 hover:text-red-500"
+                                        >
+                                            Sign Out
+                                        </button>
+                                    </div>
                             ) : isAuthLoading ? (
                                 <div className="px-4 py-2">
                                     <div className="h-6 w-32 bg-gray-100 animate-pulse rounded"></div>

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Maximize2, Minimize2, Download, CheckCircle, Circle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { useStudentAuth } from '../contexts/StudentAuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const LessonViewer = ({ lesson, onClose }) => {
-    const { student } = useStudentAuth();
+    const { student } = useAuth();
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [progress, setProgress] = useState(null);
     const [updating, setUpdating] = useState(false);

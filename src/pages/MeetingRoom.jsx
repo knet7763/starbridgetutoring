@@ -2,14 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { useStudentAuth } from '../contexts/StudentAuthContext';
 import { Loader2, ArrowLeft } from 'lucide-react';
 
 const MeetingRoom = () => {
     const { bookingId } = useParams();
     const navigate = useNavigate();
-    const { user: tutorUser, loading: tutorLoading } = useAuth();
-    const { student, loading: studentLoading } = useStudentAuth();
+    const { user, student, loading: authLoading } = useAuth();
     
     const [booking, setBooking] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -17,13 +15,12 @@ const MeetingRoom = () => {
 
     useEffect(() => {
         if (!bookingId) return;
-        if (tutorLoading || studentLoading) return;
+        if (authLoading) return;
 
         const fetchBookingAndVerifyAccess = async () => {
             setLoading(true);
             try {
-                // Fetch the booking - RLS will naturally prevent access if user shouldn't see it (assuming RLS is active)
-                // If the tutor is an admin or the active tutor for this booking, they should see it.
+                // Fetch the booking - RLS will naturally prevent access if user shouldn't see it
                 const { data, error } = await supabase
                     .from('bookings')
                     .select('*')
@@ -50,9 +47,9 @@ const MeetingRoom = () => {
         };
 
         fetchBookingAndVerifyAccess();
-    }, [bookingId, tutorLoading, studentLoading]);
+    }, [bookingId, authLoading]);
 
-    if (loading || tutorLoading || studentLoading) {
+    if (loading || authLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-900">
                 <Loader2 className="animate-spin text-white w-12 h-12" />

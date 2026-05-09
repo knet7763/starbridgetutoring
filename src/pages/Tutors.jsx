@@ -12,17 +12,24 @@ const Tutors = () => {
 
     const fetchTutors = async () => {
         setLoading(true);
-        const { data, error } = await supabase
-            .from('tutors')
-            .select('*')
-            .order('created_at', { ascending: false });
+        try {
+            const { data, error } = await supabase
+                .from('tutors')
+                .select('*')
+                .order('created_at', { ascending: false });
 
-        if (error) {
-            console.error('Error fetching tutors:', error);
-        } else {
-            setTutors(data || []);
+            if (error) {
+                console.error('Error fetching tutors:', error);
+                setTutors([]);
+            } else {
+                setTutors(data || []);
+            }
+        } catch (err) {
+            console.error('Unexpected error fetching tutors:', err);
+            setTutors([]);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (
