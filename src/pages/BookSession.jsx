@@ -37,8 +37,20 @@ const BookSession = () => {
 
             if (availError) {
                 console.error('Error fetching availability:', availError);
+                setAvailability([]);
             } else {
-                setAvailability(availData || []);
+                // If no availability is set yet, provide a default Mon-Fri 9-5 schedule so the booking flow can be tested
+                if (!availData || availData.length === 0) {
+                    const defaultAvail = [1, 2, 3, 4, 5].map(day => ({
+                        day_of_week: day,
+                        start_time: '09:00:00',
+                        end_time: '17:00:00',
+                        is_active: true
+                    }));
+                    setAvailability(defaultAvail);
+                } else {
+                    setAvailability(availData);
+                }
             }
 
             setLoading(false);
