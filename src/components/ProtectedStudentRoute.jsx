@@ -25,7 +25,7 @@ const ProtectedStudentRoute = ({ children }) => {
                 </div>
             );
         }
-        return <Navigate to="/login" replace />;
+        return <Navigate to="/student/login" replace />;
     }
 
     return children;

@@ -51,7 +51,7 @@ function App() {
                         path="/book-session/:tutorId"
                         element={
                             <ProtectedStudentRoute>
-                                <BookSession />
+                                <Layout><BookSession /></Layout>
                             </ProtectedStudentRoute>
                         }
                     />
