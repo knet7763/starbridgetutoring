@@ -113,6 +113,18 @@ CREATE TABLE IF NOT EXISTS responses (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Indexes for MVP Core Foreign Keys to improve performance
+CREATE INDEX IF NOT EXISTS idx_lessons_tutor_id ON lessons(tutor_id);
+CREATE INDEX IF NOT EXISTS idx_slides_lesson_id ON slides(lesson_id);
+CREATE INDEX IF NOT EXISTS idx_active_sessions_lesson_id ON active_sessions(lesson_id);
+CREATE INDEX IF NOT EXISTS idx_active_sessions_tutor_id ON active_sessions(tutor_id);
+CREATE INDEX IF NOT EXISTS idx_active_sessions_current_slide_id ON active_sessions(current_slide_id);
+CREATE INDEX IF NOT EXISTS idx_session_participants_session_id ON session_participants(session_id);
+CREATE INDEX IF NOT EXISTS idx_session_participants_student_id ON session_participants(student_id);
+CREATE INDEX IF NOT EXISTS idx_responses_session_id ON responses(session_id);
+CREATE INDEX IF NOT EXISTS idx_responses_slide_id ON responses(slide_id);
+CREATE INDEX IF NOT EXISTS idx_responses_student_id ON responses(student_id);
+
 -- MVP RLS Policies
 
 -- Safely Drop Existing Policies to prevent errors on re-runs

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Plus, Save, Image as ImageIcon, Type, MessageSquare, HelpCircle, BarChart2, Youtube, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { ChevronLeft, Plus, Save, Image as ImageIcon, Type, MessageSquare, HelpCircle, BarChart2, Youtube, CheckCircle, AlertCircle, X, Book } from 'lucide-react';
 import Board from '../components/Whiteboard/Board';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,6 +10,7 @@ import ImageSlideEditor from '../components/Builder/ImageSlideEditor';
 import YoutubeSlideEditor from '../components/Builder/YoutubeSlideEditor';
 import ShoutItOutSlideEditor from '../components/Builder/ShoutItOutSlideEditor';
 import QuizPollSlideEditor from '../components/Builder/QuizPollSlideEditor';
+import QuranSlideEditor from '../components/Builder/QuranSlideEditor';
 
 // ── Minimal toast ─────────────────────────────────────────────────────────────
 const Toast = ({ toast, onDismiss }) => {
@@ -164,6 +165,8 @@ const LessonBuilder = () => {
             content = { url: '', video_id: '' };
         } else if (type === 'image') {
             content = { url: '', caption: '' };
+        } else if (type === 'quran') {
+            content = { surah: 1, startAyah: 1, endAyah: 7 };
         }
 
         const newSlide = { id: `temp-${Date.now()}`, type: type, content };
@@ -248,7 +251,8 @@ const LessonBuilder = () => {
                                                 slide.type === 'youtube' ? <Youtube size={24} className="text-red-500" /> :
                                                     slide.type === 'quiz' ? <HelpCircle size={24} className="text-purple-400" /> :
                                                         slide.type === 'poll' ? <BarChart2 size={24} className="text-blue-400" /> :
-                                                            <div className="w-full h-full bg-gray-50" />}
+                                                            slide.type === 'quran' ? <Book size={24} className="text-yellow-600" /> :
+                                                                <div className="w-full h-full bg-gray-50" />}
                                     </div>
                                 </div>
                             ))}
@@ -261,6 +265,7 @@ const LessonBuilder = () => {
                                 { type: 'quiz', label: 'Quiz', Icon: HelpCircle, color: 'purple' },
                                 { type: 'poll', label: 'Poll', Icon: BarChart2, color: 'blue' },
                                 { type: 'youtube', label: 'YouTube', Icon: Youtube, color: 'red' },
+                                { type: 'quran', label: 'Quran', Icon: Book, color: 'yellow' },
                             ].reduce((rows, item, i) => {
                                 if (i % 3 === 0) rows.push([]);
                                 rows[rows.length - 1].push(item);
@@ -304,6 +309,11 @@ const LessonBuilder = () => {
                             />
                         ) : slides.length > 0 && (currentSlide.type === 'quiz' || currentSlide.type === 'poll') ? (
                             <QuizPollSlideEditor
+                                slide={currentSlide}
+                                updateSlideContent={updateCurrentSlideContent}
+                            />
+                        ) : slides.length > 0 && currentSlide.type === 'quran' ? (
+                            <QuranSlideEditor
                                 slide={currentSlide}
                                 updateSlideContent={updateCurrentSlideContent}
                             />

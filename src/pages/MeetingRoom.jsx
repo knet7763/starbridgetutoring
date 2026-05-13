@@ -2,7 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, Video, VideoOff, Mic, MicOff, MonitorUp, LogOut, Layout, Edit3 } from 'lucide-react';
+import { DailyProvider } from '@daily-co/daily-react';
+import { useVideoRoom } from '../hooks/useVideoRoom';
+import MeetingVideo from '../components/Classroom/MeetingVideo';
+import Board from '../components/Whiteboard/Board';
 
 const MeetingRoom = () => {
     const { bookingId } = useParams();
@@ -12,6 +16,32 @@ const MeetingRoom = () => {
     const [booking, setBooking] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [activeTool, setActiveTool] = useState('video'); // 'video' or 'split'
+
+    const {
+        callObject,
+        isJoined,
+        error: videoError,
+        joinRoom,
+        leaveRoom,
+        toggleVideo,
+        toggleAudio,
+        toggleScreenShare,
+        isScreenSharing
+    } = useVideoRoom(bookingId);
+
+    const [isVideoOn, setIsVideoOn] = useState(true);
+    const [isAudioOn, setIsAudioOn] = useState(true);
+
+    const handleToggleVideo = () => {
+        setIsVideoOn(!isVideoOn);
+        toggleVideo();
+    };
+
+    const handleToggleAudio = () => {
+        setIsAudioOn(!isAudioOn);
+        toggleAudio();
+    };
 
     useEffect(() => {
         if (!bookingId) return;
@@ -20,10 +50,9 @@ const MeetingRoom = () => {
         const fetchBookingAndVerifyAccess = async () => {
             setLoading(true);
             try {
-                // Fetch the booking - RLS will naturally prevent access if user shouldn't see it
                 const { data, error } = await supabase
                     .from('bookings')
-                    .select('*')
+                    .select('*, tutors(name, subject), students(name)')
                     .eq('id', bookingId)
                     .single();
                 
@@ -33,11 +62,16 @@ const MeetingRoom = () => {
                 }
 
                 if (!data.room_url) {
-                    setError('The meeting room has not been created yet.');
+                    setError('The meeting room has not been created yet. Please wait for the tutor to confirm.');
                     return;
                 }
 
                 setBooking(data);
+
+                // Join the video room automatically
+                const name = user?.full_name || student?.full_name || "Guest";
+                joinRoom(data.room_url, name);
+
             } catch (err) {
                 console.error(err);
                 setError('An error occurred loading the room.');
@@ -47,32 +81,38 @@ const MeetingRoom = () => {
         };
 
         fetchBookingAndVerifyAccess();
-    }, [bookingId, authLoading]);
+    }, [bookingId, authLoading, user, student]);
+
+    const handleLeave = async () => {
+        if (window.confirm('Leave this session?')) {
+            await leaveRoom();
+            navigate(-1);
+        }
+    };
 
     if (loading || authLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-900">
-                <Loader2 className="animate-spin text-white w-12 h-12" />
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-950">
+                <Loader2 className="animate-spin text-primary w-16 h-16 mb-4" />
+                <p className="text-gray-400 font-bold uppercase tracking-widest text-sm">Initializing Premium Classroom...</p>
             </div>
         );
     }
 
-    if (error) {
+    if (error || videoError) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 text-center">
-                <div className="bg-white p-8 rounded-2xl shadow-sm max-w-md w-full">
-                    <div className="text-red-500 mb-4 flex justify-center">
-                        <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-950 p-4 text-center">
+                <div className="bg-white rounded-[2rem] p-10 shadow-2xl max-w-md w-full border-t-8 border-red-500">
+                    <div className="text-red-500 mb-6 flex justify-center">
+                        <VideoOff className="w-20 h-20" />
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-                    <p className="text-gray-600 mb-6">{error}</p>
+                    <h2 className="text-3xl font-black text-gray-900 mb-4 tracking-tighter">Connection Error</h2>
+                    <p className="text-gray-600 mb-8 font-medium">{error || videoError}</p>
                     <button 
                         onClick={() => navigate(-1)} 
-                        className="inline-flex items-center justify-center bg-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-yellow-600 w-full"
+                        className="flex items-center justify-center bg-gray-900 text-white px-8 py-4 rounded-2xl font-black hover:bg-gray-800 w-full transition-all shadow-lg"
                     >
-                       <ArrowLeft className="mr-2 w-5 h-5" /> Go Back
+                       <ArrowLeft className="mr-2 w-5 h-5" /> Back to Dashboard
                     </button>
                 </div>
             </div>
@@ -80,28 +120,95 @@ const MeetingRoom = () => {
     }
 
     return (
-        <div className="w-screen h-screen bg-black overflow-hidden flex flex-col">
-            <div className="bg-gray-900 text-white px-4 py-3 flex justify-between items-center shadow-md shrink-0">
-                <div className="flex items-center">
-                    <button 
-                        onClick={() => navigate(-1)}
-                        className="mr-4 p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
-                        title="Leave Meeting"
-                    >
-                        <ArrowLeft className="w-5 h-5 text-gray-300" />
-                    </button>
-                    <h1 className="font-semibold text-lg truncate max-w-sm">1-on-1 Session</h1>
+        <DailyProvider callObject={callObject}>
+            <div className="w-screen h-screen bg-gray-950 overflow-hidden flex flex-col">
+                {/* Unified Header */}
+                <header className="bg-gray-900/50 backdrop-blur-xl text-white px-6 py-4 flex justify-between items-center border-b border-white/5 shrink-0 z-50">
+                    <div className="flex items-center gap-6">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-0.5">Live Session</span>
+                            <h1 className="font-black text-xl tracking-tighter truncate max-w-sm">
+                                {booking.tutors?.name} • {booking.tutors?.subject}
+                            </h1>
+                        </div>
+                        <div className="h-8 w-px bg-white/10" />
+                        <div className="flex items-center gap-3">
+                            <button 
+                                onClick={() => setActiveTool('video')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${activeTool === 'video' ? 'bg-primary text-white shadow-lg' : 'hover:bg-white/5 text-gray-400'}`}
+                            >
+                                <Video size={18} /> Video Only
+                            </button>
+                            <button 
+                                onClick={() => setActiveTool('split')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${activeTool === 'split' ? 'bg-primary text-white shadow-lg' : 'hover:bg-white/5 text-gray-400'}`}
+                            >
+                                <Layout size={18} /> Interactive View
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={handleLeave}
+                            className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-6 py-2.5 rounded-2xl font-black text-sm transition-all border border-red-500/20 flex items-center gap-2"
+                        >
+                            <LogOut size={18} /> Leave Session
+                        </button>
+                    </div>
+                </header>
+
+                {/* Classroom Content */}
+                <div className="flex-1 flex overflow-hidden relative">
+                    {/* Video Section */}
+                    <div className={`transition-all duration-500 ease-in-out ${activeTool === 'video' ? 'w-full' : 'w-[400px] border-r border-white/5'}`}>
+                        <MeetingVideo />
+                    </div>
+
+                    {/* Whiteboard Section */}
+                    <div className={`flex-1 bg-white relative transition-all duration-500 ${activeTool === 'video' ? 'opacity-0 translate-x-full pointer-events-none' : 'opacity-100 translate-x-0'}`}>
+                        <div className="absolute top-6 left-6 z-10 bg-gray-900/90 backdrop-blur px-4 py-2 rounded-xl border border-white/10 text-white flex items-center gap-2 shadow-2xl">
+                            <Edit3 size={16} className="text-primary" />
+                            <span className="text-xs font-black uppercase tracking-widest">Shared Interactive Board</span>
+                        </div>
+                        <Board 
+                            sessionId={bookingId} 
+                            readOnly={false} 
+                            className="w-full h-full"
+                        />
+                    </div>
+
+                    {/* Floating Controls */}
+                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-gray-900/90 backdrop-blur-2xl px-8 py-4 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 z-[100]">
+                        <button
+                            onClick={handleToggleAudio}
+                            className={`p-4 rounded-2xl transition-all ${isAudioOn ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-red-500 text-white animate-pulse'}`}
+                            title={isAudioOn ? "Mute Microphone" : "Unmute Microphone"}
+                        >
+                            {isAudioOn ? <Mic size={24} /> : <MicOff size={24} />}
+                        </button>
+
+                        <button
+                            onClick={handleToggleVideo}
+                            className={`p-4 rounded-2xl transition-all ${isVideoOn ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-red-500 text-white animate-pulse'}`}
+                            title={isVideoOn ? "Turn Camera Off" : "Turn Camera On"}
+                        >
+                            {isVideoOn ? <Video size={24} /> : <VideoOff size={24} />}
+                        </button>
+
+                        <div className="w-px h-10 bg-white/10 mx-2" />
+
+                        <button
+                            onClick={toggleScreenShare}
+                            className={`flex items-center gap-3 px-6 py-4 rounded-2xl font-black text-sm transition-all ${isScreenSharing ? 'bg-green-500 text-white' : 'bg-white/5 hover:bg-white/10 text-white'}`}
+                        >
+                            <MonitorUp size={24} />
+                            {isScreenSharing ? 'Sharing Screen' : 'Share Screen'}
+                        </button>
+                    </div>
                 </div>
             </div>
-            <div className="flex-1 w-full h-full relative">
-                <iframe
-                    src={booking.room_url}
-                    allow="camera; microphone; fullscreen; speaker; display-capture; autoplay"
-                    className="w-full h-full border-none absolute inset-0"
-                    title="Video Meeting Room"
-                />
-            </div>
-        </div>
+        </DailyProvider>
     );
 };
 

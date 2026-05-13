@@ -6,9 +6,16 @@ import VideoSidebar from '../components/Classroom/VideoSidebar';
 import { useVideoRoom } from '../hooks/useVideoRoom';
 import { supabase } from '../lib/supabase';
 import { api } from '../services/api';
+import QuranStage from '../components/Classroom/Stage/QuranStage';
+import HadithStage from '../components/Classroom/Stage/HadithStage';
+import FiqhStage from '../components/Classroom/Stage/FiqhStage';
+import Board from '../components/Whiteboard/Board';
+
+import { useAuth } from '../contexts/AuthContext';
 
 const ClassroomStudent = () => {
     const { sessionId } = useParams();
+    const { student } = useAuth();
     const location = useLocation();
     const guestName = location.state?.guestName || 'Student';
     const [loading, setLoading] = useState(true);
@@ -19,6 +26,17 @@ const ClassroomStudent = () => {
     const [shoutAnswer, setShoutAnswer] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submittedSlideIds, setSubmittedSlideIds] = useState(new Set());
+    const [stars, setStars] = useState(0);
+    const [showStarPop, setShowStarPop] = useState(false);
+
+    // Initial fetch of student stars if logged in
+    useEffect(() => {
+        if (student) {
+            api.gamification.getStudentStats(student.id).then(({ data }) => {
+                if (data) setStars(data.stars);
+            });
+        }
+    }, [student]);
 
     const {
         callObject,
@@ -118,11 +136,20 @@ const ClassroomStudent = () => {
             const { error } = await api.responses.create({
                 session_id: session.id,
                 slide_id: currentSlide.id,
+                student_id: student?.id || null,
                 answer: shoutAnswer.trim()
             });
             if (error) throw error;
             setSubmittedSlideIds(prev => new Set(prev).add(currentSlide.id));
             setShoutAnswer('');
+            
+            // Award a star for shout out (and persist if logged in)
+            if (student) {
+                await api.gamification.awardStar(student.id, 1);
+            }
+            setStars(prev => prev + 1);
+            setShowStarPop(true);
+            setTimeout(() => setShowStarPop(false), 2000);
         } catch (error) {
             console.error('Error submitting shout:', error);
             alert('Failed to submit. Please try again.');
@@ -138,10 +165,19 @@ const ClassroomStudent = () => {
             const { error } = await api.responses.create({
                 session_id: session.id,
                 slide_id: currentSlide.id,
+                student_id: student?.id || null,
                 answer: optionIndex.toString()
             });
             if (error) throw error;
             setSubmittedSlideIds(prev => new Set(prev).add(currentSlide.id));
+            
+            // Award a star for quiz/poll (and persist if logged in)
+            if (student) {
+                await api.gamification.awardStar(student.id, 1);
+            }
+            setStars(prev => prev + 1);
+            setShowStarPop(true);
+            setTimeout(() => setShowStarPop(false), 2000);
         } catch (error) {
             console.error('Error submitting answer:', error);
             alert('Failed to submit. Please try again.');
@@ -179,28 +215,6 @@ const ClassroomStudent = () => {
         if (!currentSlide) return <div className="text-center p-10 text-xl font-bold text-gray-400">Waiting for teacher to start...</div>;
 
         switch (currentSlide.type) {
-            case 'image':
-                return (
-                    <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-gray-900">
-                        {currentSlide.content?.url ? (
-                            <>
-                                <img
-                                    src={currentSlide.content.url}
-                                    alt={currentSlide.content?.caption || 'Slide'}
-                                    className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-2xl"
-                                />
-                                {currentSlide.content?.caption && (
-                                    <p className="mt-4 text-white/70 text-base font-medium text-center">{currentSlide.content.caption}</p>
-                                )}
-                            </>
-                        ) : (
-                            <div className="text-white/40 text-center">
-                                <ImageIcon size={64} className="mx-auto mb-4" />
-                                <p>No image uploaded for this slide</p>
-                            </div>
-                        )}
-                    </div>
-                );
             case 'quiz':
             case 'poll':
                 const isMCQSubmitted = submittedSlideIds.has(currentSlide.id);
@@ -293,16 +307,24 @@ const ClassroomStudent = () => {
                         )}
                     </div>
                 );
+            case 'quran':
+                return <QuranStage currentSlide={currentSlide} />;
+            case 'hadith':
+                return <HadithStage currentSlide={currentSlide} />;
+            case 'fiqh':
+                return <FiqhStage currentSlide={currentSlide} />;
+            case 'image':
             case 'blank':
             default:
                 return (
                     <div className="w-full h-full flex items-center justify-center relative">
                         <Board
-                            key={currentSlide.id}
+                            key={currentSlide?.id}
                             className="w-full h-full"
                             sessionId={sessionId}
                             readOnly={true}
-                            initialSnapshot={currentSlide.drawing_data}
+                            backgroundImage={currentSlide?.type === 'image' ? currentSlide.content?.url : null}
+                            initialSnapshot={currentSlide?.drawing_data}
                         />
                     </div>
                 );
@@ -327,6 +349,11 @@ const ClassroomStudent = () => {
                     <div className="flex items-center gap-2 bg-yellow-100 text-yellow-800 px-4 py-1.5 rounded-full font-bold text-sm">
                         <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
                         LIVE
+                    </div>
+                    {/* Stars Indicator */}
+                    <div className="flex items-center gap-1.5 bg-gray-900 text-yellow-400 px-3 py-1.5 rounded-full font-black text-sm shadow-inner border border-gray-800">
+                        <Sparkles size={16} className={showStarPop ? "animate-ping" : ""} />
+                        <span>{stars}</span>
                     </div>
                 </div>
             </header>
@@ -356,6 +383,9 @@ const ClassroomStudent = () => {
                                         shout_it_out: { emoji: '💬', label: 'Shout It Out', bg: 'bg-yellow-100 text-yellow-700' },
                                         youtube: { emoji: '▶️', label: 'Video', bg: 'bg-red-100 text-red-700' },
                                         image: { emoji: '🖼️', label: 'Image', bg: 'bg-green-100 text-green-700' },
+                                        quran: { emoji: '📖', label: 'Quran Reading', bg: 'bg-yellow-100 text-yellow-700' },
+                                        hadith: { emoji: '📜', label: 'Hadith Study', bg: 'bg-emerald-100 text-emerald-700' },
+                                        fiqh: { emoji: '⚖️', label: 'Fiqh Lesson', bg: 'bg-indigo-100 text-indigo-700' },
                                     };
                                     const badge = badges[currentSlide.type];
                                     if (!badge) return null;

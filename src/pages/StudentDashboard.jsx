@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
-import { BookOpen, LogOut, User, CheckCircle, Clock, Calendar, Video } from 'lucide-react';
+import { BookOpen, LogOut, User, CheckCircle, Clock, Calendar, Video, Sparkles, Award } from 'lucide-react';
 import Button from '../components/Button';
 
 const StudentDashboard = () => {
@@ -11,6 +11,8 @@ const StudentDashboard = () => {
     const [enrollments, setEnrollments] = useState([]);
     const [lessonProgress, setLessonProgress] = useState([]);
     const [upcomingBookings, setUpcomingBookings] = useState([]);
+    const [badges, setBadges] = useState([]);
+    const [studentStars, setStudentStars] = useState(0);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -25,8 +27,18 @@ const StudentDashboard = () => {
             fetchEnrollments(),
             fetchLessonProgress(),
             fetchUpcomingBookings(),
+            fetchGamificationData(),
         ]);
         setLoading(false);
+    };
+
+    const fetchGamificationData = async () => {
+        const [statsRes, badgesRes] = await Promise.all([
+            api.gamification.getStudentStats(student.id),
+            api.gamification.getStudentBadges(student.id)
+        ]);
+        if (!statsRes.error) setStudentStars(statsRes.data?.stars || 0);
+        if (!badgesRes.error) setBadges(badgesRes.data || []);
     };
 
     const fetchEnrollments = async () => {
@@ -95,10 +107,10 @@ const StudentDashboard = () => {
                             <div className="bg-white rounded-lg shadow p-6">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-gray-600">Tutors</p>
-                                        <p className="text-3xl font-bold text-gray-900">{enrollments.length}</p>
+                                        <p className="text-sm font-medium text-gray-600">Total Stars</p>
+                                        <p className="text-3xl font-bold text-yellow-500">{studentStars}</p>
                                     </div>
-                                    <User className="h-12 w-12 text-blue-500" />
+                                    <Sparkles className="h-12 w-12 text-yellow-400" />
                                 </div>
                             </div>
                             <div className="bg-white rounded-lg shadow p-6">
@@ -130,6 +142,40 @@ const StudentDashboard = () => {
                             </div>
                         </div>
 
+                        {/* Badges & Achievements */}
+                        <div className="bg-white rounded-lg shadow overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-200 bg-yellow-50">
+                                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                    <Award className="text-yellow-600" /> Badges & Achievements
+                                </h2>
+                            </div>
+                            <div className="p-6">
+                                {badges.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 opacity-40">
+                                            <Award size={32} />
+                                        </div>
+                                        <p className="text-gray-500">No badges earned yet. Keep participating in classes to earn them!</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-6">
+                                        {badges.map((sb) => (
+                                            <div key={sb.id} className="flex flex-col items-center text-center group">
+                                                <div className="relative mb-2">
+                                                    <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-200"></div>
+                                                    <div className="relative w-16 h-16 bg-white rounded-full flex items-center justify-center border-2 border-yellow-100 shadow-sm overflow-hidden">
+                                                        <img src={sb.badges.icon_url} alt={sb.badges.name} className="w-10 h-10 object-contain" />
+                                                    </div>
+                                                </div>
+                                                <h3 className="text-sm font-bold text-gray-900">{sb.badges.name}</h3>
+                                                <p className="text-[10px] text-gray-500 mt-0.5">{new Date(sb.awarded_at).toLocaleDateString()}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                         {/* My Tutors */}
                         <div className="bg-white rounded-lg shadow">
                             <div className="px-6 py-4 border-b border-gray-200">
@@ -146,17 +192,38 @@ const StudentDashboard = () => {
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         {enrollments.map((enrollment) => (
                                             <div key={enrollment.id} className="border rounded-lg p-4 hover:border-primary transition-colors">
-                                                <div className="flex items-center space-x-3">
-                                                    {enrollment.tutors?.image_url && (
-                                                        <img
-                                                            src={enrollment.tutors.image_url}
-                                                            alt={enrollment.tutors.name}
-                                                            className="h-12 w-12 rounded-full object-cover"
-                                                        />
-                                                    )}
-                                                    <div>
-                                                        <h3 className="font-semibold text-gray-900">{enrollment.tutors?.name}</h3>
-                                                        <p className="text-sm text-gray-600">{enrollment.tutors?.subject}</p>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center space-x-3">
+                                                        {enrollment.tutors?.image_url && (
+                                                            <img
+                                                                src={enrollment.tutors.image_url}
+                                                                alt={enrollment.tutors.name}
+                                                                className="h-12 w-12 rounded-full object-cover"
+                                                            />
+                                                        )}
+                                                        <div>
+                                                            <h3 className="font-semibold text-gray-900">{enrollment.tutors?.name}</h3>
+                                                            <p className="text-sm text-gray-600">{enrollment.tutors?.subject}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-end">
+                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tighter mb-1 ${
+                                                            enrollment.payment_status === 'paid' ? 'bg-green-100 text-green-700' :
+                                                            enrollment.payment_status === 'overdue' ? 'bg-red-100 text-red-700' :
+                                                            'bg-yellow-100 text-yellow-700'
+                                                        }`}>
+                                                            {enrollment.payment_status || 'pending'}
+                                                        </span>
+                                                        {enrollment.payment_status !== 'paid' && enrollment.payment_link && (
+                                                            <a 
+                                                                href={enrollment.payment_link} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer"
+                                                                className="text-xs text-primary font-bold hover:underline flex items-center gap-1"
+                                                            >
+                                                                Pay Now
+                                                            </a>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>

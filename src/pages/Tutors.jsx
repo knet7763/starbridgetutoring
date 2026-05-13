@@ -12,11 +12,16 @@ const Tutors = () => {
 
     const fetchTutors = async () => {
         setLoading(true);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         try {
             const { data, error } = await supabase
                 .from('tutors')
                 .select('*')
                 .order('created_at', { ascending: false });
+
+            clearTimeout(timeoutId);
 
             if (error) {
                 console.error('Error fetching tutors:', error);
@@ -25,7 +30,11 @@ const Tutors = () => {
                 setTutors(data || []);
             }
         } catch (err) {
-            console.error('Unexpected error fetching tutors:', err);
+            if (err.name === 'AbortError') {
+                console.error('Fetch tutors timed out');
+            } else {
+                console.error('Unexpected error fetching tutors:', err);
+            }
             setTutors([]);
         } finally {
             setLoading(false);

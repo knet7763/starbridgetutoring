@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext({});
@@ -16,6 +16,7 @@ export const AuthProvider = ({ children }) => {
     const [student, setStudent] = useState(null);
     const [loading, setLoading] = useState(true);
     const [profileMissing, setProfileMissing] = useState(false);
+    const initialized = useRef(false);
 
     const loadStudentProfile = async (userId) => {
         try {
@@ -41,25 +42,23 @@ export const AuthProvider = ({ children }) => {
     };
 
     useEffect(() => {
+        if (initialized.current) return;
+        initialized.current = true;
+
         let mounted = true;
 
         const initializeAuth = async () => {
-            setLoading(true);
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!mounted) return;
 
                 if (session?.user) {
                     const role = localStorage.getItem('sb_role');
-                    if (role === 'teacher') {
-                        setUser(session.user);
-                        setStudent(null);
-                    } else if (role === 'student') {
-                        setUser(session.user);
+                    setUser(session.user);
+                    if (role === 'student') {
                         await loadStudentProfile(session.user.id);
                     } else {
-                        // Fallback or unknown role
-                        setUser(session.user);
+                        setStudent(null);
                     }
                 } else {
                     setUser(null);
@@ -79,7 +78,8 @@ export const AuthProvider = ({ children }) => {
 
             if (session?.user) {
                 const role = localStorage.getItem('sb_role');
-                setUser(session.user);
+                // Use functional update to prevent unnecessary re-renders if user is the same
+                setUser(prev => prev?.id === session.user.id ? prev : session.user);
                 
                 if (role === 'student') {
                     await loadStudentProfile(session.user.id);
@@ -119,6 +119,16 @@ export const AuthProvider = ({ children }) => {
         return { error };
     };
 
+    const resetPasswordForEmail = async (email) => {
+        return supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/reset-password`,
+        });
+    };
+
+    const updatePassword = async (newPassword) => {
+        return supabase.auth.updateUser({ password: newPassword });
+    };
+
     const value = useMemo(() => ({ 
         user, 
         student,
@@ -126,8 +136,8 @@ export const AuthProvider = ({ children }) => {
         profileMissing,
         signIn, 
         signOut,
-        isTeacher: localStorage.getItem('sb_role') === 'teacher',
-        isStudent: localStorage.getItem('sb_role') === 'student'
+        resetPasswordForEmail,
+        updatePassword
     }), [user, student, loading, profileMissing]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

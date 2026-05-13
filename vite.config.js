@@ -6,5 +6,16 @@ export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
     include: ['@daily-co/daily-js', 'jotai', 'jotai/utils']
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          daily: ['@daily-co/daily-js', '@daily-co/daily-react'],
+          tldraw: ['tldraw']
+        }
+      }
+    }
   }
 })

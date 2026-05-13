@@ -52,6 +52,10 @@ export const api = {
     },
     responses: {
         getBySlideId: (slideId) => supabase.from('responses').select('*').eq('slide_id', slideId),
+        getBySessionId: (sessionId) => supabase
+            .from('responses')
+            .select('*, slides(*), student_profiles(full_name)')
+            .eq('session_id', sessionId),
         create: (data) => supabase.from('responses').insert([data]),
     },
     participants: {
@@ -71,6 +75,7 @@ export const api = {
             .eq('tutor_id', tutorId)
             .single(),
         create: (data) => supabase.from('enrollments').insert([data]),
+        update: (id, data) => supabase.from('enrollments').update(data).eq('id', id),
     },
     lessonProgress: {
         getByStudentId: (studentId) => supabase
@@ -121,5 +126,37 @@ export const api = {
             .eq('tutor_id', tutorId)
             .eq('is_active', true),
     },
+    gamification: {
+        getStudentStats: (studentId) => supabase
+            .from('student_profiles')
+            .select('stars')
+            .eq('id', studentId)
+            .single(),
+        awardStar: async (studentId, count = 1) => {
+            const { data } = await supabase
+                .from('student_profiles')
+                .select('stars')
+                .eq('id', studentId)
+                .single();
+            const currentStars = data?.stars || 0;
+            return supabase
+                .from('student_profiles')
+                .update({ stars: currentStars + count })
+                .eq('id', studentId);
+        },
+        getBadges: () => supabase.from('badges').select('*'),
+        getStudentBadges: (studentId) => supabase
+            .from('student_badges')
+            .select('*, badges(*)')
+            .eq('student_id', studentId),
+        awardBadge: (student_id, badge_id) => supabase
+            .from('student_badges')
+            .insert([{ student_id, badge_id }]),
+    },
+    trials: {
+        create: (data) => supabase.from('trial_requests').insert([data]),
+        getAll: () => supabase.from('trial_requests').select('*').order('created_at', { ascending: false }),
+        updateStatus: (id, status) => supabase.from('trial_requests').update({ status }).eq('id', id),
+    }
 };
 

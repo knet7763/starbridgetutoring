@@ -18,7 +18,7 @@ const LessonViewer = ({ lesson, onClose }) => {
                 .update({ view_count: (lesson.view_count || 0) + 1 })
                 .eq('id', lesson.id)
                 .then(() => {
-                    console.log('View tracked for lesson:', lesson.title);
+                    // View tracked for lesson
                 });
         }
     }, [lesson?.id]);

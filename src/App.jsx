@@ -26,6 +26,8 @@ import ClassroomHost from './pages/ClassroomHost';
 import ClassroomStudent from './pages/ClassroomStudent';
 import JoinClass from './pages/JoinClass';
 import MeetingRoom from './pages/MeetingRoom';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 function App() {
     return (
@@ -110,6 +112,8 @@ function App() {
                             </ProtectedStudentRoute>
                         }
                     />
+                    <Route path="/forgot-password" element={<ForgotPassword />} />
+                    <Route path="/reset-password" element={<ResetPassword />} />
                 </Routes>
             </Router>
         </AuthProvider>

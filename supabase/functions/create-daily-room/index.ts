@@ -42,7 +42,7 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text()
       console.error("Daily.co API error:", errorText)
-      return new Response(JSON.stringify({ error: 'Failed to create video room' }), { 
+      return new Response(JSON.stringify({ error: 'Failed to create video room', details: errorText }), { 
         status: response.status, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       })

@@ -13,6 +13,9 @@ import ShoutItOutStage from '../components/Classroom/Stage/ShoutItOutStage';
 import QuizStage from '../components/Classroom/Stage/QuizStage';
 import PollStage from '../components/Classroom/Stage/PollStage';
 import YoutubeStage from '../components/Classroom/Stage/YoutubeStage';
+import QuranStage from '../components/Classroom/Stage/QuranStage';
+import HadithStage from '../components/Classroom/Stage/HadithStage';
+import FiqhStage from '../components/Classroom/Stage/FiqhStage';
 
 const ClassroomHost = () => {
     const { sessionId } = useParams();
@@ -249,18 +252,26 @@ const ClassroomHost = () => {
                             <PollStage currentSlide={currentSlide} shoutResponses={shoutResponses} />
                         ) : currentSlide?.type === 'youtube' ? (
                             <YoutubeStage currentSlide={currentSlide} />
-                        ) : slides.length > 0 ? (
+                        ) : currentSlide?.type === 'quran' ? (
+                            <QuranStage currentSlide={currentSlide} />
+                        ) : currentSlide?.type === 'hadith' ? (
+                            <HadithStage currentSlide={currentSlide} />
+                        ) : currentSlide?.type === 'fiqh' ? (
+                            <FiqhStage currentSlide={currentSlide} />
+                        ) : currentSlide?.type === 'image' || currentSlide?.type === 'blank' || !currentSlide?.type ? (
                             <Board
                                 key={currentSlide?.id}
                                 sessionId={sessionId}
                                 readOnly={false}
+                                backgroundImage={currentSlide?.type === 'image' ? currentSlide.content?.url : null}
                                 initialSnapshot={currentSlide?.drawing_data}
                                 onChange={(snapshot) => {
                                     api.slides.updateDrawing(currentSlide.id, snapshot).then(({ error }) => {
                                         if (error) console.error("Error saving whiteboard:", error);
                                         setSlides(prev => {
                                             const newSlides = [...prev];
-                                            newSlides[currentSlideIndex].drawing_data = snapshot;
+                                            const idx = newSlides.findIndex(s => s.id === currentSlide.id);
+                                            if (idx !== -1) newSlides[idx].drawing_data = snapshot;
                                             return newSlides;
                                         });
                                     });

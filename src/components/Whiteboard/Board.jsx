@@ -7,6 +7,7 @@ const Board = ({
     readOnly = false,
     sessionId = null,   // If set, activates realtime sync
     initialSnapshot = null,
+    backgroundImage = null, // New prop for background image
     onChange = null,
     className = "w-full h-full"
 }) => {
@@ -71,6 +72,28 @@ const Board = ({
             }
         }
 
+        // Add background image if provided and not already there
+        if (backgroundImage && !readOnly) {
+            const shapes = editor.getCurrentPageShapes();
+            const hasBackground = shapes.some(s => s.type === 'image' && s.props.src === backgroundImage);
+            
+            if (!hasBackground) {
+                editor.createShapes([
+                    {
+                        type: 'image',
+                        x: 0,
+                        y: 0,
+                        props: {
+                            src: backgroundImage,
+                            w: 800,
+                            h: 600,
+                        },
+                        isLocked: true,
+                    },
+                ]);
+            }
+        }
+
         // Listen to editor changes
         if (!readOnly) {
             editor.store.listen(() => {
@@ -83,14 +106,13 @@ const Board = ({
                 }
             }, { scope: 'document', source: 'user' });
         }
-    }, [readOnly, sessionId, broadcast, initialSnapshot, onChange]);
+    }, [readOnly, sessionId, broadcast, initialSnapshot, backgroundImage, onChange]);
 
     return (
         <div className={className} style={{ position: 'relative' }}>
             <Tldraw
                 onMount={handleMount}
                 inferDarkMode
-                // Disable the menu for students; they are view-only
                 hideUi={readOnly}
             />
         </div>
