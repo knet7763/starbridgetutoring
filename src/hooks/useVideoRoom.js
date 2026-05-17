@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import DailyIframe from '@daily-co/daily-js';
 import { supabase } from '../lib/supabase';
 
@@ -83,11 +83,18 @@ export function useVideoRoom(sessionId) {
     }, [callObject, isScreenSharing]);
 
     // Listen for screen share stops from the browser UI (e.g. clicking "Stop sharing" on the browser banner)
-    useCallback(() => {
+    useEffect(() => {
         if (!callObject) return;
-        callObject.on('local-screen-share-stopped', () => {
+
+        const handleScreenShareStopped = () => {
             setIsScreenSharing(false);
-        });
+        };
+
+        callObject.on('local-screen-share-stopped', handleScreenShareStopped);
+
+        return () => {
+            callObject.off('local-screen-share-stopped', handleScreenShareStopped);
+        };
     }, [callObject]);
 
     return {

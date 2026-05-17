@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart3, Users, Award, TrendingUp, Search, Calendar, Download, CreditCard, Loader2 } from 'lucide-react';
 import { api } from '../../services/api';
 import { supabase } from '../../lib/supabase';
+import { motion } from 'framer-motion';
 
 const TeacherInsightsTab = ({ user }) => {
     const [sessions, setSessions] = useState([]);
