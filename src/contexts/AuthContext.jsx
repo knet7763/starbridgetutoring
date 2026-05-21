@@ -111,6 +111,21 @@ export const AuthProvider = ({ children }) => {
         return { data, error };
     };
 
+    const signUp = async (email, password, metadata = {}) => {
+        localStorage.setItem('sb_role', 'student');
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: metadata,
+            },
+        });
+        if (error) {
+            localStorage.removeItem('sb_role');
+        }
+        return { data, error };
+    };
+
     const signOut = async () => {
         localStorage.removeItem('sb_role');
         const { error } = await supabase.auth.signOut();
@@ -135,6 +150,7 @@ export const AuthProvider = ({ children }) => {
         loading, 
         profileMissing,
         signIn, 
+        signUp,
         signOut,
         resetPasswordForEmail,
         updatePassword

@@ -39,13 +39,12 @@ const StudentSignup = () => {
         setLoading(true);
 
         try {
-            await signUp(
-                formData.email,
-                formData.password,
-                formData.fullName,
-                formData.gradeLevel,
-                formData.parentEmail
-            );
+            const { error: signUpError } = await signUp(formData.email, formData.password, {
+                full_name: formData.fullName,
+                grade_level: formData.gradeLevel,
+                parent_email: formData.parentEmail
+            });
+            if (signUpError) throw signUpError;
             navigate('/student/dashboard');
         } catch (err) {
             setError(err.message || 'Failed to create account');

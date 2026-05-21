@@ -20,20 +20,30 @@ import StudentLogin from './pages/StudentLogin';
 import StudentSignup from './pages/StudentSignup';
 import StudentDashboard from './pages/StudentDashboard';
 import BookSession from './pages/BookSession';
+const ClassroomHost = React.lazy(() => import('./pages/ClassroomHost'));
+const ClassroomStudent = React.lazy(() => import('./pages/ClassroomStudent'));
+const LessonBuilder = React.lazy(() => import('./pages/LessonBuilder'));
+const MeetingRoom = React.lazy(() => import('./pages/MeetingRoom'));
 import TeacherDashboard from './pages/TeacherDashboard';
-import LessonBuilder from './pages/LessonBuilder';
-import ClassroomHost from './pages/ClassroomHost';
-import ClassroomStudent from './pages/ClassroomStudent';
 import JoinClass from './pages/JoinClass';
-import MeetingRoom from './pages/MeetingRoom';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+
+const LoadingSpinner = () => (
+    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center">
+        <div className="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-4 text-yellow-400 text-xs font-black tracking-widest uppercase animate-pulse">
+            Loading Classroom Module...
+        </p>
+    </div>
+);
 
 function App() {
     return (
         <AuthProvider>
             <Router>
-                <Routes>
+                <React.Suspense fallback={<LoadingSpinner />}>
+                    <Routes>
                     {/* Public routes with Layout */}
                     <Route path="/" element={<Layout><Home /></Layout>} />
                     <Route path="/subjects" element={<Layout><Subjects /></Layout>} />
@@ -115,8 +125,9 @@ function App() {
                     <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route path="/reset-password" element={<ResetPassword />} />
                 </Routes>
-            </Router>
-        </AuthProvider>
+            </React.Suspense>
+        </Router>
+    </AuthProvider>
     );
 }
 
