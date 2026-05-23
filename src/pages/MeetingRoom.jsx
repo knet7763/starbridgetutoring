@@ -93,7 +93,7 @@ const MeetingRoom = () => {
         };
 
         fetchBookingAndJoin();
-    }, [bookingId, authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [bookingId, authLoading]);
 
     const handleLeave = async () => {
         if (window.confirm('Leave this session?')) {
