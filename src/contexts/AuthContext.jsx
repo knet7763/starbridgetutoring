@@ -14,9 +14,14 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [student, setStudent] = useState(null);
+    const [role, setRole] = useState(null);
     const [loading, setLoading] = useState(true);
     const [profileMissing, setProfileMissing] = useState(false);
     const initialized = useRef(false);
+
+    const getRoleFromUser = (user) => {
+        return user?.app_metadata?.role || user?.user_metadata?.role || null;
+    };
 
     const loadStudentProfile = async (userId) => {
         try {
@@ -53,9 +58,11 @@ export const AuthProvider = ({ children }) => {
                 if (!mounted) return;
 
                 if (session?.user) {
-                    const role = localStorage.getItem('sb_role');
+                    const sessionRole = getRoleFromUser(session.user);
                     setUser(session.user);
-                    if (role === 'student') {
+                    setRole(sessionRole);
+
+                    if (sessionRole === 'student') {
                         await loadStudentProfile(session.user.id);
                     } else {
                         setStudent(null);
@@ -63,6 +70,7 @@ export const AuthProvider = ({ children }) => {
                 } else {
                     setUser(null);
                     setStudent(null);
+                    setRole(null);
                 }
             } catch (error) {
                 console.error('Auth initialization error:', error);
@@ -77,11 +85,11 @@ export const AuthProvider = ({ children }) => {
             if (!mounted) return;
 
             if (session?.user) {
-                const role = localStorage.getItem('sb_role');
-                // Use functional update to prevent unnecessary re-renders if user is the same
+                const sessionRole = getRoleFromUser(session.user);
                 setUser(prev => prev?.id === session.user.id ? prev : session.user);
-                
-                if (role === 'student') {
+                setRole(sessionRole);
+
+                if (sessionRole === 'student') {
                     await loadStudentProfile(session.user.id);
                 } else {
                     setStudent(null);
@@ -89,6 +97,7 @@ export const AuthProvider = ({ children }) => {
             } else {
                 setUser(null);
                 setStudent(null);
+                setRole(null);
                 if (event === 'SIGNED_OUT') {
                     localStorage.removeItem('sb_role');
                 }
@@ -105,9 +114,26 @@ export const AuthProvider = ({ children }) => {
     const signIn = async (email, password, role = 'teacher') => {
         localStorage.setItem('sb_role', role);
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
         if (error) {
             localStorage.removeItem('sb_role');
+            return { data, error };
         }
+
+        // Persist role metadata in Supabase so server-side edge functions can verify teacher/admin access.
+        if (data?.user && role) {
+            try {
+                const { data: updatedData, error: updateError } = await supabase.auth.updateUser({
+                    data: { role },
+                });
+                if (!updateError && updatedData?.user) {
+                    setUser(updatedData.user);
+                }
+            } catch (updateErr) {
+                console.warn('Unable to persist auth role metadata:', updateErr);
+            }
+        }
+
         return { data, error };
     };
 
@@ -117,7 +143,7 @@ export const AuthProvider = ({ children }) => {
             email,
             password,
             options: {
-                data: metadata,
+                data: { role: 'student', ...metadata },
             },
         });
         if (error) {
@@ -131,6 +157,7 @@ export const AuthProvider = ({ children }) => {
         const { error } = await supabase.auth.signOut();
         setUser(null);
         setStudent(null);
+        setRole(null);
         return { error };
     };
 
@@ -144,9 +171,17 @@ export const AuthProvider = ({ children }) => {
         return supabase.auth.updateUser({ password: newPassword });
     };
 
+    const isStudent = role === 'student';
+    const isTeacher = role === 'teacher';
+    const isAdmin = role === 'admin';
+
     const value = useMemo(() => ({ 
         user, 
         student,
+        role,
+        isStudent,
+        isTeacher,
+        isAdmin,
         loading, 
         profileMissing,
         signIn, 
@@ -154,7 +189,7 @@ export const AuthProvider = ({ children }) => {
         signOut,
         resetPasswordForEmail,
         updatePassword
-    }), [user, student, loading, profileMissing]);
+    }), [user, student, role, loading, profileMissing]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

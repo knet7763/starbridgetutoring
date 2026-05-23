@@ -108,13 +108,15 @@ export const api = {
         create: (data) => supabase.from('bookings').insert([data]),
         update: (id, data) => supabase.from('bookings').update(data).eq('id', id),
         confirmWithRoom: async (id) => {
-            const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-daily-room');
+            const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-daily-room', {
+                body: { bookingId: id },
+            });
             let room_url = null;
             if (!edgeError && edgeData) {
                 room_url = edgeData.room_url;
             } else {
                 console.error("Error creating Daily room via Edge Function:", edgeError || "Unknown error");
-                throw new Error("Failed to create video room");
+                throw new Error("Failed to create video room. Ensure DAILY_API_KEY is set in Supabase secrets.");
             }
             return supabase.from('bookings').update({ status: 'confirmed', room_url }).eq('id', id);
         }

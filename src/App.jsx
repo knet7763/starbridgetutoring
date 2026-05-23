@@ -3,6 +3,9 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProtectedStudentRoute from './components/ProtectedStudentRoute';
+import ProtectedMeetingRoute from './components/ProtectedMeetingRoute';
+import ProtectedTeacherRoute from './components/ProtectedTeacherRoute';
+import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Subjects from './pages/Subjects';
@@ -71,9 +74,9 @@ function App() {
                     <Route
                         path="/admin/dashboard"
                         element={
-                            <ProtectedRoute>
+                            <ProtectedAdminRoute>
                                 <AdminDashboard />
-                            </ProtectedRoute>
+                            </ProtectedAdminRoute>
                         }
                     />
 
@@ -81,17 +84,17 @@ function App() {
                     <Route
                         path="/teacher/dashboard"
                         element={
-                            <ProtectedRoute>
+                            <ProtectedTeacherRoute>
                                 <TeacherDashboard />
-                            </ProtectedRoute>
+                            </ProtectedTeacherRoute>
                         }
                     />
                     <Route
                         path="/teacher/lesson/:lessonId"
                         element={
-                            <ProtectedRoute>
+                            <ProtectedTeacherRoute>
                                 <LessonBuilder />
-                            </ProtectedRoute>
+                            </ProtectedTeacherRoute>
                         }
                     />
 
@@ -109,7 +112,14 @@ function App() {
                         element={<ClassroomStudent />}
                     />
                     <Route path="/join" element={<JoinClass />} />
-                    <Route path="/meeting/:bookingId" element={<MeetingRoom />} />
+                    <Route
+                        path="/meeting/:bookingId"
+                        element={
+                            <ProtectedMeetingRoute>
+                                <MeetingRoom />
+                            </ProtectedMeetingRoute>
+                        }
+                    />
 
                     {/* Student routes without Layout */}
                     <Route path="/student/login" element={<StudentLogin />} />

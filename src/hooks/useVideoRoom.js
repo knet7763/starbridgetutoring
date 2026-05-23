@@ -1,25 +1,30 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import DailyIframe from '@daily-co/daily-js';
-import { supabase } from '../lib/supabase';
 
-// In a real production app, Room creation MUST happen on a secure backend.
-// Exposing the Daily API key to the client is a severe security risk.
-// For the MVP, we will assume a room URL is created and stored in Supabase,
-// or we will use a hardcoded room if a backend isn't available yet.
-
-export function useVideoRoom(sessionId) {
+/**
+ * useVideoRoom
+ * Manages a Daily.co call object for 1-on-1 sessions.
+ * Uses a ref to hold the callObject so that joinRoom/leaveRoom callbacks
+ * remain stable and don't cause infinite re-render loops.
+ */
+export function useVideoRoom() {
+    // callObjectRef holds the live instance (stable, no re-renders on change)
+    const callObjectRef = useRef(null);
+    // callObject state is only used to expose it to <DailyProvider>
     const [callObject, setCallObject] = useState(null);
     const [isJoined, setIsJoined] = useState(false);
+    const [isConnecting, setIsConnecting] = useState(false);
     const [error, setError] = useState(null);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
 
     const joinRoom = useCallback(async (roomUrl, participantName) => {
-        try {
-            if (callObject) {
-                await callObject.leave();
-                callObject.destroy();
-            }
+        // Guard: don't join twice
+        if (callObjectRef.current) return;
 
+        setIsConnecting(true);
+        setError(null);
+
+        try {
             const newCallObject = DailyIframe.createCallObject({
                 videoSource: true,
                 audioSource: true,
@@ -28,84 +33,116 @@ export function useVideoRoom(sessionId) {
                 },
             });
 
+            // Store in ref immediately (stable reference)
+            callObjectRef.current = newCallObject;
+            // Also push to state so DailyProvider re-renders
             setCallObject(newCallObject);
 
-            newCallObject.on('joined-meeting', () => setIsJoined(true));
-            newCallObject.on('left-meeting', () => setIsJoined(false));
+            newCallObject.on('joining-meeting', () => setIsConnecting(true));
+            newCallObject.on('joined-meeting', () => {
+                setIsJoined(true);
+                setIsConnecting(false);
+            });
+            newCallObject.on('left-meeting', () => {
+                setIsJoined(false);
+                setIsConnecting(false);
+            });
             newCallObject.on('error', (e) => {
-                console.error("Daily error:", e);
-                setError(e.errorMsg);
+                console.error('Daily error:', e);
+                setError(e.errorMsg || 'An error occurred in the video call.');
+                setIsConnecting(false);
             });
 
             await newCallObject.join({ url: roomUrl, userName: participantName });
         } catch (err) {
-            console.error("Failed to join room", err);
-            setError(err.message);
+            console.error('Failed to join room:', err);
+            setError(err.message || 'Failed to join the video room.');
+            setIsConnecting(false);
+            callObjectRef.current = null;
         }
-    }, [callObject]);
+    }, []); // No dependencies — stable forever
 
     const leaveRoom = useCallback(async () => {
-        if (!callObject) return;
-        await callObject.leave();
-        callObject.destroy();
+        const co = callObjectRef.current;
+        if (!co) return;
+        try {
+            await co.leave();
+            co.destroy();
+        } catch (_) {
+            // ignore errors on leave
+        }
+        callObjectRef.current = null;
         setCallObject(null);
         setIsJoined(false);
-    }, [callObject]);
+        setIsConnecting(false);
+        setIsScreenSharing(false);
+    }, []);
 
     const toggleVideo = useCallback(() => {
-        if (!callObject) return;
-        const localVideo = callObject.localVideo();
-        callObject.setLocalVideo(!localVideo);
-    }, [callObject]);
+        const co = callObjectRef.current;
+        if (!co) return;
+        co.setLocalVideo(!co.localVideo());
+    }, []);
 
     const toggleAudio = useCallback(() => {
-        if (!callObject) return;
-        const localAudio = callObject.localAudio();
-        callObject.setLocalAudio(!localAudio);
-    }, [callObject]);
+        const co = callObjectRef.current;
+        if (!co) return;
+        co.setLocalAudio(!co.localAudio());
+    }, []);
 
     const toggleScreenShare = useCallback(async () => {
-        if (!callObject) return;
-
+        const co = callObjectRef.current;
+        if (!co) return;
         try {
             if (isScreenSharing) {
-                await callObject.stopScreenShare();
+                await co.stopScreenShare();
                 setIsScreenSharing(false);
             } else {
-                await callObject.startScreenShare();
+                await co.startScreenShare();
                 setIsScreenSharing(true);
             }
         } catch (err) {
-            console.error("Failed to toggle screenshare:", err);
-            // Revert state if the user cancels the picker
+            console.error('Failed to toggle screenshare:', err);
             setIsScreenSharing(false);
         }
-    }, [callObject, isScreenSharing]);
+    }, [isScreenSharing]);
 
-    // Listen for screen share stops from the browser UI (e.g. clicking "Stop sharing" on the browser banner)
+    // Listen for browser-initiated screen-share stop (e.g. clicking "Stop sharing" banner)
     useEffect(() => {
-        if (!callObject) return;
+        const co = callObjectRef.current;
+        if (!co) return;
 
-        const handleScreenShareStopped = () => {
-            setIsScreenSharing(false);
-        };
-
-        callObject.on('local-screen-share-stopped', handleScreenShareStopped);
+        const handleScreenShareStopped = () => setIsScreenSharing(false);
+        co.on('local-screen-share-stopped', handleScreenShareStopped);
 
         return () => {
-            callObject.off('local-screen-share-stopped', handleScreenShareStopped);
+            co.off('local-screen-share-stopped', handleScreenShareStopped);
         };
-    }, [callObject]);
+    }, [callObject]); // Re-subscribe when callObject changes
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            const co = callObjectRef.current;
+            if (co) {
+                co.leave().catch(() => {}).finally(() => {
+                    co.destroy();
+                    callObjectRef.current = null;
+                });
+            }
+        };
+    }, []);
 
     return {
         callObject,
         isJoined,
+        isConnecting,
         error,
         joinRoom,
         leaveRoom,
         toggleVideo,
         toggleAudio,
         toggleScreenShare,
-        isScreenSharing
+        isScreenSharing,
     };
 }

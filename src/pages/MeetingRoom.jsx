@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, ArrowLeft, Video, VideoOff, Mic, MicOff, MonitorUp, LogOut, Layout, Edit3 } from 'lucide-react';
+import { Loader2, ArrowLeft, Video, VideoOff, Mic, MicOff, MonitorUp, LogOut, Layout, Edit3, Wifi } from 'lucide-react';
 import { DailyProvider } from '@daily-co/daily-react';
 import { useVideoRoom } from '../hooks/useVideoRoom';
 import MeetingVideo from '../components/Classroom/MeetingVideo';
@@ -12,7 +12,7 @@ const MeetingRoom = () => {
     const { bookingId } = useParams();
     const navigate = useNavigate();
     const { user, student, loading: authLoading } = useAuth();
-    
+
     const [booking, setBooking] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -21,25 +21,29 @@ const MeetingRoom = () => {
     const {
         callObject,
         isJoined,
+        isConnecting,
         error: videoError,
         joinRoom,
         leaveRoom,
         toggleVideo,
         toggleAudio,
         toggleScreenShare,
-        isScreenSharing
-    } = useVideoRoom(bookingId);
+        isScreenSharing,
+    } = useVideoRoom();
 
     const [isVideoOn, setIsVideoOn] = useState(true);
     const [isAudioOn, setIsAudioOn] = useState(true);
 
+    // Guard: prevent joinRoom from being called more than once
+    const hasJoinedRef = useRef(false);
+
     const handleToggleVideo = () => {
-        setIsVideoOn(!isVideoOn);
+        setIsVideoOn(prev => !prev);
         toggleVideo();
     };
 
     const handleToggleAudio = () => {
-        setIsAudioOn(!isAudioOn);
+        setIsAudioOn(prev => !prev);
         toggleAudio();
     };
 
@@ -47,41 +51,49 @@ const MeetingRoom = () => {
         if (!bookingId) return;
         if (authLoading) return;
 
-        const fetchBookingAndVerifyAccess = async () => {
+        const fetchBookingAndJoin = async () => {
             setLoading(true);
             try {
-                const { data, error } = await supabase
+                const { data, error: fetchError } = await supabase
                     .from('bookings')
                     .select('*, tutors(name, subject), students(name)')
                     .eq('id', bookingId)
                     .single();
-                
-                if (error || !data) {
+
+                if (fetchError || !data) {
                     setError('Meeting not found or you do not have permission.');
                     return;
                 }
 
                 if (!data.room_url) {
-                    setError('The meeting room has not been created yet. Please wait for the tutor to confirm.');
+                    setError('The meeting room has not been created yet. Please wait for the tutor to confirm the session.');
                     return;
                 }
 
                 setBooking(data);
 
-                // Join the video room automatically
-                const name = user?.full_name || student?.full_name || "Guest";
-                joinRoom(data.room_url, name);
+                // Resolve display name: tutor uses user_metadata, student uses profile
+                const name =
+                    user?.user_metadata?.full_name ||
+                    student?.full_name ||
+                    user?.email ||
+                    'Guest';
 
+                // Only join once
+                if (!hasJoinedRef.current) {
+                    hasJoinedRef.current = true;
+                    joinRoom(data.room_url, name);
+                }
             } catch (err) {
                 console.error(err);
-                setError('An error occurred loading the room.');
+                setError('An unexpected error occurred while loading the room.');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchBookingAndVerifyAccess();
-    }, [bookingId, authLoading, user, student]);
+        fetchBookingAndJoin();
+    }, [bookingId, authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleLeave = async () => {
         if (window.confirm('Leave this session?')) {
@@ -90,6 +102,7 @@ const MeetingRoom = () => {
         }
     };
 
+    // ── Loading States ──────────────────────────────────────────────────────────
     if (loading || authLoading) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gray-950">
@@ -108,11 +121,11 @@ const MeetingRoom = () => {
                     </div>
                     <h2 className="text-3xl font-black text-gray-900 mb-4 tracking-tighter">Connection Error</h2>
                     <p className="text-gray-600 mb-8 font-medium">{error || videoError}</p>
-                    <button 
-                        onClick={() => navigate(-1)} 
+                    <button
+                        onClick={() => navigate(-1)}
                         className="flex items-center justify-center bg-gray-900 text-white px-8 py-4 rounded-2xl font-black hover:bg-gray-800 w-full transition-all shadow-lg"
                     >
-                       <ArrowLeft className="mr-2 w-5 h-5" /> Back to Dashboard
+                        <ArrowLeft className="mr-2 w-5 h-5" /> Back to Dashboard
                     </button>
                 </div>
             </div>
@@ -122,24 +135,37 @@ const MeetingRoom = () => {
     return (
         <DailyProvider callObject={callObject}>
             <div className="w-screen h-screen bg-gray-950 overflow-hidden flex flex-col">
+
+                {/* Connecting Overlay */}
+                {isConnecting && !isJoined && (
+                    <div className="absolute inset-0 bg-gray-950/90 backdrop-blur-sm z-[200] flex flex-col items-center justify-center gap-4">
+                        <div className="relative">
+                            <Wifi className="w-16 h-16 text-primary animate-pulse" />
+                            <div className="absolute inset-0 rounded-full border-4 border-primary/30 animate-ping" />
+                        </div>
+                        <p className="text-white font-black text-xl tracking-tight">Connecting to room...</p>
+                        <p className="text-gray-400 text-sm">Please allow camera and microphone access if prompted.</p>
+                    </div>
+                )}
+
                 {/* Unified Header */}
                 <header className="bg-gray-900/50 backdrop-blur-xl text-white px-6 py-4 flex justify-between items-center border-b border-white/5 shrink-0 z-50">
                     <div className="flex items-center gap-6">
                         <div className="flex flex-col">
                             <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-0.5">Live Session</span>
                             <h1 className="font-black text-xl tracking-tighter truncate max-w-sm">
-                                {booking.tutors?.name} • {booking.tutors?.subject}
+                                {booking?.tutors?.name} • {booking?.tutors?.subject}
                             </h1>
                         </div>
                         <div className="h-8 w-px bg-white/10" />
                         <div className="flex items-center gap-3">
-                            <button 
+                            <button
                                 onClick={() => setActiveTool('video')}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${activeTool === 'video' ? 'bg-primary text-white shadow-lg' : 'hover:bg-white/5 text-gray-400'}`}
                             >
                                 <Video size={18} /> Video Only
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setActiveTool('split')}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${activeTool === 'split' ? 'bg-primary text-white shadow-lg' : 'hover:bg-white/5 text-gray-400'}`}
                             >
@@ -148,7 +174,14 @@ const MeetingRoom = () => {
                         </div>
                     </div>
 
+                    {/* Live indicator */}
                     <div className="flex items-center gap-4">
+                        {isJoined && (
+                            <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 px-3 py-1.5 rounded-xl">
+                                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                                <span className="text-green-400 text-xs font-black uppercase tracking-widest">Live</span>
+                            </div>
+                        )}
                         <button
                             onClick={handleLeave}
                             className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-6 py-2.5 rounded-2xl font-black text-sm transition-all border border-red-500/20 flex items-center gap-2"
@@ -171,9 +204,9 @@ const MeetingRoom = () => {
                             <Edit3 size={16} className="text-primary" />
                             <span className="text-xs font-black uppercase tracking-widest">Shared Interactive Board</span>
                         </div>
-                        <Board 
-                            sessionId={bookingId} 
-                            readOnly={false} 
+                        <Board
+                            sessionId={bookingId}
+                            readOnly={false}
                             className="w-full h-full"
                         />
                     </div>
@@ -183,7 +216,7 @@ const MeetingRoom = () => {
                         <button
                             onClick={handleToggleAudio}
                             className={`p-4 rounded-2xl transition-all ${isAudioOn ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-red-500 text-white animate-pulse'}`}
-                            title={isAudioOn ? "Mute Microphone" : "Unmute Microphone"}
+                            title={isAudioOn ? 'Mute Microphone' : 'Unmute Microphone'}
                         >
                             {isAudioOn ? <Mic size={24} /> : <MicOff size={24} />}
                         </button>
@@ -191,7 +224,7 @@ const MeetingRoom = () => {
                         <button
                             onClick={handleToggleVideo}
                             className={`p-4 rounded-2xl transition-all ${isVideoOn ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-red-500 text-white animate-pulse'}`}
-                            title={isVideoOn ? "Turn Camera Off" : "Turn Camera On"}
+                            title={isVideoOn ? 'Turn Camera Off' : 'Turn Camera On'}
                         >
                             {isVideoOn ? <Video size={24} /> : <VideoOff size={24} />}
                         </button>
