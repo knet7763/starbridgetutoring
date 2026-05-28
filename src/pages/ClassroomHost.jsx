@@ -4,7 +4,7 @@ import { ChevronRight, ChevronLeft, Users, LogOut, Copy, CheckCheck, Video, Vide
 import Board from '../components/Whiteboard/Board';
 import { supabase } from '../lib/supabase';
 import { api } from '../services/api';
-import { DailyProvider } from '@daily-co/daily-react';
+import { DailyProvider, DailyAudio } from '@daily-co/daily-react';
 import VideoSidebar from '../components/Classroom/VideoSidebar';
 import { useVideoRoom } from '../hooks/useVideoRoom';
 
@@ -27,13 +27,13 @@ const ClassroomHost = () => {
     const [participants, setParticipants] = useState([]);
     const [shoutResponses, setShoutResponses] = useState([]);
     const [codeCopied, setCodeCopied] = useState(false);
-
-    // Hardcode a Daily.co room URL for the MVP, or fetch it from session/db
-    // In production, you'd generate a unique room for each session via an API function
+    const [roomError, setRoomError] = useState(null);
+    const joinedRef = React.useRef(false);
 
     const {
         callObject,
         isJoined,
+        isConnecting,
         error: videoError,
         joinRoom,
         leaveRoom,
@@ -56,6 +56,62 @@ const ClassroomHost = () => {
         setIsAudioOn(!isAudioOn);
         toggleAudio();
     };
+
+    useEffect(() => {
+        if (!sessionId) return;
+        
+        const fetchSessionData = async () => {
+            try {
+                // Fetch session
+                const { data: sessionData, error: sessionError } = await api.sessions.getActiveById(sessionId);
+
+                if (sessionError) throw sessionError;
+                setSession(sessionData);
+
+                // Join the Daily WebRTC room as soon as we have session data — only once
+                if (sessionData && !joinedRef.current) {
+                    joinedRef.current = true;
+                    if (sessionData.room_url) {
+                        joinRoom(sessionData.room_url, "Teacher");
+                    } else {
+                        console.warn("No dynamic room URL found, falling back to demo room");
+                        joinRoom("https://starbridgetutoring.daily.co/demo-classroom", "Teacher");
+                    }
+                }
+
+                // Fetch slides
+                const { data: slidesData, error: slidesError } = await api.slides.getByLessonId(sessionData.lesson_id);
+
+                if (slidesError) throw slidesError;
+                setSlides(slidesData || []);
+
+                // Fetch existing participants
+                const { data: participantsData } = await api.participants.getBySessionId(sessionId);
+
+                setParticipants(participantsData || []);
+
+            } catch (error) {
+                console.error('Error loading session:', error);
+                setRoomError(`Failed to load classroom: ${error.message}`);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchSessionData();
+
+        // Subscribe to participants
+        const channel = supabase
+            .channel(`session:${sessionId}`)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'session_participants', filter: `session_id=eq.${sessionId}` }, (payload) => {
+                setParticipants(prev => [...prev, payload.new]);
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [sessionId, joinRoom]);
 
     useEffect(() => {
         if (!slides || slides.length === 0 || !slides[currentSlideIndex]) return;
@@ -92,56 +148,10 @@ const ClassroomHost = () => {
     }, [currentSlideIndex, slides]);
 
     useEffect(() => {
-        fetchSessionData();
-
-        // Subscribe to participants
-        const channel = supabase
-            .channel(`session:${sessionId}`)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'session_participants', filter: `session_id=eq.${sessionId}` }, (payload) => {
-                setParticipants(prev => [...prev, payload.new]);
-            })
-            .subscribe();
-
         return () => {
-            supabase.removeChannel(channel);
+            leaveRoom();
         };
-    }, [sessionId]);
-
-    const fetchSessionData = async () => {
-        try {
-            // Fetch session
-            const { data: sessionData, error: sessionError } = await api.sessions.getActiveById(sessionId);
-
-            if (sessionError) throw sessionError;
-            setSession(sessionData);
-
-            // Join the Daily WebRTC room as soon as we have session data
-            if (sessionData) {
-                if (sessionData.room_url) {
-                    joinRoom(sessionData.room_url, "Teacher");
-                } else {
-                    console.warn("No dynamic room URL found, falling back to demo room");
-                    joinRoom("https://starbridgetutoring.daily.co/demo-classroom", "Teacher");
-                }
-            }
-
-            // Fetch slides
-            const { data: slidesData, error: slidesError } = await api.slides.getByLessonId(sessionData.lesson_id);
-
-            if (slidesError) throw slidesError;
-            setSlides(slidesData || []);
-
-            // Fetch existing participants
-            const { data: participantsData } = await api.participants.getBySessionId(sessionId);
-
-            setParticipants(participantsData || []);
-
-        } catch (error) {
-            console.error('Error loading session:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [leaveRoom]);
 
     const updateSessionSlide = async (slideId) => {
         try {
@@ -187,7 +197,21 @@ const ClassroomHost = () => {
     };
 
     if (loading) return <div className="flex justify-center items-center h-screen bg-gray-900 text-white">Loading Classroom...</div>;
-    if (!session) return <div className="text-white">Session not found</div>;
+    if (!session) return <div className="text-white text-center pt-20">Session not found</div>;
+    if (roomError || videoError) return (
+        <div className="flex justify-center items-center h-screen bg-gray-900 text-white px-4">
+            <div className="text-center">
+                <h2 className="text-2xl font-bold mb-4">Classroom Connection Error</h2>
+                <p className="text-red-400 mb-6">{roomError || videoError}</p>
+                <button 
+                    onClick={() => navigate('/teacher/dashboard')}
+                    className="bg-primary text-white px-6 py-3 rounded-lg font-bold hover:bg-yellow-600"
+                >
+                    Back to Dashboard
+                </button>
+            </div>
+        </div>
+    );
 
     const currentSlide = slides[currentSlideIndex];
 
@@ -238,9 +262,17 @@ const ClassroomHost = () => {
             </div>
 
             <DailyProvider callObject={callObject}>
+                <DailyAudio />
                 <div className="flex-1 flex overflow-hidden">
+                    {/* Connection Status Indicator */}
+                    {isConnecting && (
+                        <div className="absolute top-20 left-6 bg-yellow-900 text-yellow-100 px-4 py-2 rounded-lg text-sm font-bold z-10">
+                            Connecting to video room...
+                        </div>
+                    )}
+
                     {/* Video Sidebar */}
-                    {isJoined && <VideoSidebar />}
+                    {(isJoined || isConnecting) && <VideoSidebar />}
 
                     {/* Main Stage */}
                     <div className="flex-1 relative bg-white flex flex-col">

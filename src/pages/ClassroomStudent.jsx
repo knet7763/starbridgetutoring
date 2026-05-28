@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { Sparkles, MessageSquare, HelpCircle, CheckCircle, BarChart2, Youtube, Image as ImageIcon, Video, VideoOff, Mic, MicOff, MonitorUp } from 'lucide-react';
-import { DailyProvider } from '@daily-co/daily-react';
+import { DailyProvider, DailyAudio } from '@daily-co/daily-react';
 import VideoSidebar from '../components/Classroom/VideoSidebar';
 import { useVideoRoom } from '../hooks/useVideoRoom';
 import { supabase } from '../lib/supabase';
@@ -28,6 +28,8 @@ const ClassroomStudent = () => {
     const [submittedSlideIds, setSubmittedSlideIds] = useState(new Set());
     const [stars, setStars] = useState(0);
     const [showStarPop, setShowStarPop] = useState(false);
+    const [roomError, setRoomError] = useState(null);
+    const joinedRef = React.useRef(false);
 
     // Initial fetch of student stars if logged in
     useEffect(() => {
@@ -88,12 +90,15 @@ const ClassroomStudent = () => {
                 if (slidesError) throw slidesError;
                 setSlides(slidesData || []);
 
-                // Join logic for WebRTC
-                if (sessionData.room_url) {
-                    joinRoom(sessionData.room_url, guestName);
-                } else {
-                    console.warn("No dynamic room URL found, falling back to demo room");
-                    joinRoom("https://starbridgetutoring.daily.co/demo-classroom", guestName);
+                // Join logic for WebRTC — only once
+                if (!joinedRef.current) {
+                    joinedRef.current = true;
+                    if (sessionData.room_url) {
+                        joinRoom(sessionData.room_url, guestName);
+                    } else {
+                        console.warn("No dynamic room URL found, falling back to demo room");
+                        joinRoom("https://starbridgetutoring.daily.co/demo-classroom", guestName);
+                    }
                 }
 
                 // Supabase Realtime Subscription targeting active_sessions table
@@ -116,18 +121,20 @@ const ClassroomStudent = () => {
 
             } catch (error) {
                 console.error('Error joining session:', error);
+                setRoomError(`Failed to join classroom: ${error.message}`);
             } finally {
                 setLoading(false);
             }
         };
 
+        if (!sessionId) return;
         initClassroom();
 
         return () => {
             if (channel) supabase.removeChannel(channel);
             leaveRoom();
         };
-    }, [sessionId]);
+    }, [sessionId, guestName, joinRoom, leaveRoom]);
 
     const handleShoutSubmit = async () => {
         if (!shoutAnswer.trim() || !currentSlide?.id) return;
@@ -199,6 +206,17 @@ const ClassroomStudent = () => {
     );
 
     if (!session) return <div className="flex justify-center items-center h-screen">Session not found</div>;
+
+    if (roomError) return (
+        <div className="flex flex-col items-center justify-center h-screen bg-yellow-50 text-center p-8">
+            <div className="text-6xl mb-6">⚠️</div>
+            <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Connection Error</h1>
+            <p className="text-lg text-gray-600 mb-6">{roomError}</p>
+            <a href="/join" className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-yellow-600 transition-colors">
+                Try Another Class
+            </a>
+        </div>
+    );
 
     if (sessionEnded) return (
         <div className="flex flex-col items-center justify-center h-screen bg-yellow-50 text-center p-8">
@@ -359,6 +377,7 @@ const ClassroomStudent = () => {
             </header>
 
             <DailyProvider callObject={callObject}>
+                <DailyAudio />
                 <div className="flex-1 flex overflow-hidden">
                     {/* Video Sidebar Component */}
                     {isJoined && <VideoSidebar />}

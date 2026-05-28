@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader2, ArrowLeft, Video, VideoOff, Mic, MicOff, MonitorUp, LogOut, Layout, Edit3, Wifi } from 'lucide-react';
-import { DailyProvider } from '@daily-co/daily-react';
+import { DailyProvider, DailyAudio } from '@daily-co/daily-react';
 import { useVideoRoom } from '../hooks/useVideoRoom';
 import MeetingVideo from '../components/Classroom/MeetingVideo';
 import Board from '../components/Whiteboard/Board';
@@ -134,6 +134,7 @@ const MeetingRoom = () => {
 
     return (
         <DailyProvider callObject={callObject}>
+            <DailyAudio />
             <div className="w-screen h-screen bg-gray-950 overflow-hidden flex flex-col">
 
                 {/* Connecting Overlay */}
