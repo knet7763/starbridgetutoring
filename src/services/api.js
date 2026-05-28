@@ -160,6 +160,9 @@ export const api = {
         getAll: () => supabase.from('trial_requests').select('*').order('created_at', { ascending: false }),
         updateStatus: (id, status) => supabase.from('trial_requests').update({ status }).eq('id', id),
     },
+    meetings: {
+        createQuickRoom: () => supabase.functions.invoke('create-daily-room'),
+    },
     ai: {
         analyzeBoard: async (slideTitle, shapeData) => {
             try {

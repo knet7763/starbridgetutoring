@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Plus, Save, Image as ImageIcon, Type, MessageSquare, HelpCircle, BarChart2, Youtube, CheckCircle, AlertCircle, X, Book } from 'lucide-react';
+import { ChevronLeft, Plus, Save, Image as ImageIcon, Type, MessageSquare, HelpCircle, BarChart2, Youtube, CheckCircle, AlertCircle, X, Book, Video, Loader2 } from 'lucide-react';
 import Board from '../components/Whiteboard/Board';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -36,11 +36,31 @@ const LessonBuilder = () => {
     const [slides, setSlides] = useState([]);
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
     const [toast, setToast] = useState(null);
+    const [launchingVideo, setLaunchingVideo] = useState(false);
 
     const showToast = useCallback((message, type = 'success') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3500);
     }, []);
+
+    const handleLaunchVideo = async () => {
+        setLaunchingVideo(true);
+        try {
+            const { data, error } = await api.meetings.createQuickRoom();
+            if (error) throw error;
+            if (data?.room_url) {
+                window.open(data.room_url, '_blank');
+                showToast('1-on-1 video room launched!');
+            } else {
+                throw new Error('Failed to fetch a video room URL.');
+            }
+        } catch (error) {
+            console.error('Error launching video room:', error);
+            showToast(error.message || 'Failed to launch video room.', 'error');
+        } finally {
+            setLaunchingVideo(false);
+        }
+    };
 
     useEffect(() => {
         if (user && lessonId) {
@@ -201,6 +221,20 @@ const LessonBuilder = () => {
                     />
                 </div>
                 <div className="flex gap-3">
+                    <button
+                        onClick={handleLaunchVideo}
+                        disabled={launchingVideo}
+                        className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-lg font-bold flex items-center gap-2 disabled:opacity-50 transition-all border border-yellow-500/20"
+                        title="Launch 1-on-1 Video Room"
+                        style={{ borderBottom: '3px solid #CA8A04' }}
+                    >
+                        {launchingVideo ? (
+                            <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                            <Video size={18} />
+                        )}
+                        {launchingVideo ? 'Launching...' : 'Launch 1on1 Video'}
+                    </button>
                     <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">
                         Preview
                     </button>
