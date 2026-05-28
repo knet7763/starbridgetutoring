@@ -47,7 +47,18 @@ const LessonBuilder = () => {
         setLaunchingVideo(true);
         try {
             const { data, error } = await api.meetings.createQuickRoom();
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase Edge Function error:', error);
+                let errorMsg = error.message;
+                if (error.context) {
+                    try {
+                        const bodyText = await error.context.text();
+                        const parsed = JSON.parse(bodyText);
+                        errorMsg = parsed.error || parsed.message || bodyText;
+                    } catch (_) {}
+                }
+                throw new Error(errorMsg);
+            }
             if (data?.room_url) {
                 window.open(data.room_url, '_blank');
                 showToast('1-on-1 video room launched!');
