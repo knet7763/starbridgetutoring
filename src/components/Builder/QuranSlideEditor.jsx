@@ -1,26 +1,63 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Search, List } from 'lucide-react';
+import { Book, Search, List, Loader2, AlertTriangle } from 'lucide-react';
 
 const QuranSlideEditor = ({ slide, updateSlideContent }) => {
-    const { surah = 1, startAyah = 1, endAyah = 7 } = slide.content || {};
+    const { surah = 1, startAyah = 1, endAyah = 7 } = slide?.content || {};
     const [surahs, setSurahs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(null);
 
     useEffect(() => {
         // Fetch Surah list from Alquran.cloud API
         fetch('https://api.alquran.cloud/v1/surah')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error(`API error: ${res.status}`);
+                return res.json();
+            })
             .then(data => {
-                setSurahs(data.data);
+                const list = Array.isArray(data?.data) ? data.data : [];
+                setSurahs(list);
+                if (list.length === 0) setFetchError('No surahs returned from API.');
                 setLoading(false);
             })
-            .catch(err => console.error('Error fetching surahs:', err));
+            .catch(err => {
+                console.error('Error fetching surahs:', err);
+                setFetchError('Could not load Surah list. Check your connection.');
+                setLoading(false);
+            });
     }, []);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         updateSlideContent({ [name]: parseInt(value) });
     };
+
+    if (loading) {
+        return (
+            <div className="p-8 max-w-2xl mx-auto h-full flex flex-col justify-center items-center gap-4">
+                <Loader2 size={40} className="animate-spin text-yellow-500" />
+                <p className="text-gray-500 font-medium">Loading Surah list…</p>
+            </div>
+        );
+    }
+
+    if (fetchError) {
+        return (
+            <div className="p-8 max-w-2xl mx-auto h-full flex flex-col justify-center items-center gap-4">
+                <div className="p-4 bg-red-50 border-2 border-red-200 rounded-2xl flex items-start gap-3 text-red-700">
+                    <AlertTriangle size={22} className="mt-0.5 shrink-0" />
+                    <div>
+                        <p className="font-bold">Could not load Surah list</p>
+                        <p className="text-sm mt-1">{fetchError}</p>
+                        <button
+                            onClick={() => { setFetchError(null); setLoading(true); }}
+                            className="mt-3 text-xs font-bold underline"
+                        >Try again</button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-8 max-w-2xl mx-auto h-full flex flex-col justify-center">

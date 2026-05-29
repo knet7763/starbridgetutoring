@@ -8,6 +8,7 @@ const TeacherBookingsTab = ({ user }) => {
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
+    const [actionError, setActionError] = useState(null);
 
     useEffect(() => {
         if (user) {
@@ -26,12 +27,13 @@ const TeacherBookingsTab = ({ user }) => {
 
     const handleConfirm = async (id) => {
         setActionLoading(id);
+        setActionError(null);
         try {
             await api.bookings.confirmWithRoom(id);
             await fetchBookings();
         } catch (error) {
             console.error('Error confirming booking', error);
-            alert('Failed to confirm booking and create room.');
+            setActionError('Failed to confirm booking. Please try again.');
         } finally {
             setActionLoading(null);
         }
@@ -69,6 +71,12 @@ const TeacherBookingsTab = ({ user }) => {
 
     return (
         <div className="space-y-4">
+            {actionError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium flex justify-between items-center">
+                    <span>{actionError}</span>
+                    <button onClick={() => setActionError(null)} className="ml-4 font-bold text-red-500 hover:text-red-700">×</button>
+                </div>
+            )}
             {bookings.map((booking) => (
                 <div key={booking.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
                     <div className="flex-1 space-y-2">

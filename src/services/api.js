@@ -38,13 +38,9 @@ export const api = {
         getActiveById: (id) => supabase.from('active_sessions').select('*, lessons(*)').eq('id', id).single(),
         getByCode: (code) => supabase.from('active_sessions').select('id, is_active').eq('code', code).single(),
         start: async (data) => {
-            const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-daily-room');
-            let room_url = null;
-            if (!edgeError && edgeData) {
-                room_url = edgeData.room_url;
-            } else {
-                console.error("Error creating Daily room via Edge Function:", edgeError || "Unknown error");
-            }
+            // Generate a free Jitsi Meet URL — no API key or payment required
+            const roomName = `StarBridgeClass-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+            const room_url = `https://meet.jit.si/${roomName}`;
             return supabase.from('active_sessions').insert([{ ...data, room_url }]).select().single();
         },
         end: (id) => supabase.from('active_sessions').update({ is_active: false, ended_at: new Date().toISOString() }).eq('id', id),
@@ -108,16 +104,9 @@ export const api = {
         create: (data) => supabase.from('bookings').insert([data]),
         update: (id, data) => supabase.from('bookings').update(data).eq('id', id),
         confirmWithRoom: async (id) => {
-            const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-daily-room', {
-                body: { bookingId: id },
-            });
-            let room_url = null;
-            if (!edgeError && edgeData) {
-                room_url = edgeData.room_url;
-            } else {
-                console.error("Error creating Daily room via Edge Function:", edgeError || "Unknown error");
-                throw new Error("Failed to create video room. Ensure DAILY_API_KEY is set in Supabase secrets.");
-            }
+            // Generate a free Jitsi Meet URL — no API key or payment required
+            const roomName = `StarBridge-${id.substring(0, 8)}-${Math.random().toString(36).substring(2, 7)}`;
+            const room_url = `https://meet.jit.si/${roomName}`;
             return supabase.from('bookings').update({ status: 'confirmed', room_url }).eq('id', id);
         }
     },
@@ -161,7 +150,11 @@ export const api = {
         updateStatus: (id, status) => supabase.from('trial_requests').update({ status }).eq('id', id),
     },
     meetings: {
-        createQuickRoom: () => supabase.functions.invoke('create-daily-room'),
+        // Legacy: kept for reference but not used — LessonBuilder uses Jitsi directly
+        createQuickRoom: () => {
+            const roomName = `StarBridge-Quick-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+            return Promise.resolve({ data: { room_url: `https://meet.jit.si/${roomName}` }, error: null });
+        },
     },
     ai: {
         analyzeBoard: async (slideTitle, shapeData) => {
