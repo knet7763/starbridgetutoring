@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Tldraw, getSnapshot, loadSnapshot } from 'tldraw';
 import 'tldraw/tldraw.css';
 import { Sparkles, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -21,38 +20,60 @@ const Board = ({
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisResult, setAnalysisResult] = useState('');
     const [showAIModal, setShowAIModal] = useState(false);
+    const [TldrawComponent, setTldrawComponent] = useState(null);
+    const [tldrawUtils, setTldrawUtils] = useState({ getSnapshot: null, loadSnapshot: null });
+
+    useEffect(() => {
+        let mounted = true;
+
+        const loadTldraw = async () => {
+            const tldraw = await import('tldraw');
+            if (!mounted) return;
+            setTldrawComponent(() => tldraw.Tldraw);
+            setTldrawUtils({
+                getSnapshot: tldraw.getSnapshot,
+                loadSnapshot: tldraw.loadSnapshot,
+            });
+        };
+
+        loadTldraw();
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     // Broadcast the current board state to all connected students
     const broadcast = useCallback(() => {
-        if (!sessionId || !editorRef.current || readOnly) return;
+        if (!sessionId || !editorRef.current || readOnly || !tldrawUtils.getSnapshot) return;
 
         // Throttle: mark as broadcasting and only send if not currently throttled
         if (isBroadcasting.current) return;
         isBroadcasting.current = true;
         setTimeout(() => { isBroadcasting.current = false; }, 120); // ~8fps max
 
-        const snapshot = getSnapshot(editorRef.current.store);
+        const snapshot = tldrawUtils.getSnapshot(editorRef.current.store);
         supabase.channel(`whiteboard:${sessionId}`).send({
             type: 'broadcast',
             event: 'draw',
             payload: snapshot,
         });
-    }, [sessionId, readOnly]);
+    }, [sessionId, readOnly, tldrawUtils]);
 
     // Optimize persistence: synchronize current board snapshot on unmount (slide change or end session)
     useEffect(() => {
         return () => {
             clearTimeout(timeoutRef.current);
-            if (!readOnly && editorRef.current && onChange) {
+            if (!readOnly && editorRef.current && onChange && tldrawUtils.getSnapshot) {
                 try {
-                    const finalSnapshot = getSnapshot(editorRef.current.store);
+                    const finalSnapshot = tldrawUtils.getSnapshot(editorRef.current.store);
                     onChange(finalSnapshot);
                 } catch (e) {
                     console.warn("Synchronous unmount save failed:", e);
                 }
             }
         };
-    }, [readOnly, onChange]);
+    }, [readOnly, onChange, tldrawUtils]);
 
     useEffect(() => {
         if (!sessionId) return;
@@ -62,10 +83,12 @@ const Board = ({
             const channel = supabase
                 .channel(`whiteboard:${sessionId}`)
                 .on('broadcast', { event: 'draw' }, ({ payload }) => {
-                    if (editorRef.current) {
+                    if (editorRef.current && tldrawUtils.loadSnapshot) {
                         try {
-                            loadSnapshot(editorRef.current.store, payload);
-                        } catch (e) { }
+                            tldrawUtils.loadSnapshot(editorRef.current.store, payload);
+                        } catch (e) {
+                            console.error('Failed to load broadcasted snapshot:', e);
+                        }
                     }
                 })
                 .subscribe();
@@ -79,15 +102,15 @@ const Board = ({
 
             return () => supabase.removeChannel(channel);
         }
-    }, [sessionId, readOnly]);
+    }, [sessionId, readOnly, tldrawUtils]);
 
     const handleMount = useCallback((editor) => {
         editorRef.current = editor;
 
         // Load initial drawing data if provided
-        if (initialSnapshot && Object.keys(initialSnapshot).length > 0) {
+        if (initialSnapshot && Object.keys(initialSnapshot).length > 0 && tldrawUtils.loadSnapshot) {
             try {
-                loadSnapshot(editor.store, initialSnapshot);
+                tldrawUtils.loadSnapshot(editor.store, initialSnapshot);
             } catch (e) {
                 console.error('Failed to load initial snapshot:', e);
             }
@@ -119,10 +142,10 @@ const Board = ({
         if (!readOnly) {
             editor.store.listen(() => {
                 if (sessionId) broadcast();
-                if (onChange) {
+                if (onChange && tldrawUtils.getSnapshot) {
                     clearTimeout(timeoutRef.current);
                     timeoutRef.current = setTimeout(() => {
-                        onChange(getSnapshot(editor.store));
+                        onChange(tldrawUtils.getSnapshot(editor.store));
                     }, 8000); // 8-second optimized background write cycle
                 }
             }, { scope: 'document', source: 'user' });
@@ -162,11 +185,20 @@ const Board = ({
 
     return (
         <div className={className} style={{ position: 'relative' }}>
-            <Tldraw
-                onMount={handleMount}
-                inferDarkMode
-                hideUi={readOnly}
-            />
+            {!TldrawComponent ? (
+                <div className="flex items-center justify-center h-full text-gray-500 bg-white/80 rounded-2xl">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-14 w-14 border-b-4 border-yellow-400 mb-4" />
+                        <p className="text-sm font-semibold">Loading whiteboard editor...</p>
+                    </div>
+                </div>
+            ) : (
+                <TldrawComponent
+                    onMount={handleMount}
+                    inferDarkMode
+                    hideUi={readOnly}
+                />
+            )}
 
             {/* Glowing floating AI Analyzer trigger */}
             {!readOnly && editorRef.current && (

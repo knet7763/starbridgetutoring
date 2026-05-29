@@ -8,6 +8,7 @@ export default defineConfig({
     include: ['@daily-co/daily-js', 'jotai', 'jotai/utils']
   },
   build: {
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
         manualChunks: {
