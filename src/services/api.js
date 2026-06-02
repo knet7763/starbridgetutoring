@@ -1,4 +1,25 @@
 import { supabase } from '../lib/supabase';
+import { generateLiveKitToken, getLiveKitUrl, generateRoomName } from './videoService';
+
+/**
+ * Error Handler Utility
+ * Standardizes error logging and messages across API calls
+ * 
+ * @param {Error} error - The error object
+ * @param {string} context - Context description (e.g., 'fetching tutors')
+ * @returns {Error} - Processed error
+ */
+function handleApiError(error, context = 'API call') {
+    const message = error?.message || 'Unknown error occurred';
+    console.error(`[API Error - ${context}]:`, error);
+    
+    // Log to external service in production
+    if (import.meta.env.VITE_SENTRY_DSN && typeof Sentry !== 'undefined') {
+        Sentry.captureException(error, { contexts: { api: { context } } });
+    }
+    
+    return new Error(`${context}: ${message}`);
+}
 
 /**
  * Centralized API Service for Supabase interactions.
@@ -38,10 +59,22 @@ export const api = {
         getActiveById: (id) => supabase.from('active_sessions').select('*, lessons(*)').eq('id', id).single(),
         getByCode: (code) => supabase.from('active_sessions').select('id, is_active').eq('code', code).single(),
         start: async (data) => {
-            // Generate a free Jitsi Meet URL — no API key or payment required
-            const roomName = `StarBridgeClass-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-            const room_url = `https://meet.jit.si/${roomName}`;
-            return supabase.from('active_sessions').insert([{ ...data, room_url }]).select().single();
+            try {
+                // For LiveKit, we don't need to create a room in advance
+                // Just generate a room name from the session ID
+                // Tokens will be generated when participants join
+                const roomName = generateRoomName(data.id);
+                
+                if (!roomName) {
+                    throw new Error('Failed to generate room name');
+                }
+                
+                // Store the room name in room_url field for now (schema compatibility)
+                return supabase.from('active_sessions').insert([{ ...data, room_url: roomName }]).select().single();
+            } catch (error) {
+                console.error('[sessions.start] Session creation failed:', error);
+                throw handleApiError(error, 'creating session');
+            }
         },
         end: (id) => supabase.from('active_sessions').update({ is_active: false, ended_at: new Date().toISOString() }).eq('id', id),
         updateCurrentSlide: (id, slideId) => supabase.from('active_sessions').update({ current_slide_id: slideId }).eq('id', id),
@@ -104,10 +137,21 @@ export const api = {
         create: (data) => supabase.from('bookings').insert([data]),
         update: (id, data) => supabase.from('bookings').update(data).eq('id', id),
         confirmWithRoom: async (id) => {
-            // Generate a free Jitsi Meet URL — no API key or payment required
-            const roomName = `StarBridge-${id.substring(0, 8)}-${Math.random().toString(36).substring(2, 7)}`;
-            const room_url = `https://meet.jit.si/${roomName}`;
-            return supabase.from('bookings').update({ status: 'confirmed', room_url }).eq('id', id);
+            try {
+                // For LiveKit, we don't need to create a room in advance
+                // Just generate a room name from the booking ID
+                // Tokens will be generated when participants join
+                const roomName = generateRoomName(id);
+                
+                if (!roomName) {
+                    throw new Error('Failed to generate room name');
+                }
+                
+                return supabase.from('bookings').update({ status: 'confirmed', room_url: roomName }).eq('id', id);
+            } catch (error) {
+                console.error('[bookings.confirmWithRoom] Confirmation failed:', error);
+                throw handleApiError(error, 'confirming booking');
+            }
         }
     },
     tutorAvailability: {

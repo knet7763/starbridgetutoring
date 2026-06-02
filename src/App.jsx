@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
+import { AsyncComponentFallback } from './components/AsyncHelpers';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProtectedStudentRoute from './components/ProtectedStudentRoute';
 import ProtectedMeetingRoute from './components/ProtectedMeetingRoute';
@@ -32,20 +34,12 @@ import JoinClass from './pages/JoinClass';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 
-const LoadingSpinner = () => (
-    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center">
-        <div className="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-yellow-400 text-xs font-black tracking-widest uppercase animate-pulse">
-            Loading Classroom Module...
-        </p>
-    </div>
-);
-
 function App() {
     return (
-        <AuthProvider>
-            <Router>
-                <React.Suspense fallback={<LoadingSpinner />}>
+        <ErrorBoundary>
+            <AuthProvider>
+                <Router>
+                    <React.Suspense fallback={<AsyncComponentFallback />}>
                     <Routes>
                     {/* Public routes with Layout */}
                     <Route path="/" element={<Layout><Home /></Layout>} />
@@ -134,10 +128,11 @@ function App() {
                     />
                     <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route path="/reset-password" element={<ResetPassword />} />
-                </Routes>
-            </React.Suspense>
-        </Router>
-    </AuthProvider>
+                    </Routes>
+                </React.Suspense>
+            </Router>
+            </AuthProvider>
+        </ErrorBoundary>
     );
 }
 

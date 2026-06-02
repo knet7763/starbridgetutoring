@@ -4,7 +4,7 @@ import { ChevronRight, ChevronLeft, Users, LogOut, Copy, CheckCheck, Video, Vide
 import Board from '../components/Whiteboard/Board';
 import { supabase } from '../lib/supabase';
 import { api } from '../services/api';
-import { DailyProvider, DailyAudio } from '@daily-co/daily-react';
+import { generateLiveKitToken, generateRoomName } from '../services/videoService';
 import VideoSidebar from '../components/Classroom/VideoSidebar';
 import { useVideoRoom } from '../hooks/useVideoRoom';
 
@@ -24,14 +24,15 @@ const ClassroomHost = () => {
     const [session, setSession] = useState(null);
     const [slides, setSlides] = useState([]);
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-    const [participants, setParticipants] = useState([]);
+    const [sessionParticipants, setSessionParticipants] = useState([]);
     const [shoutResponses, setShoutResponses] = useState([]);
     const [codeCopied, setCodeCopied] = useState(false);
     const [roomError, setRoomError] = useState(null);
     const joinedRef = React.useRef(false);
 
     const {
-        callObject,
+        room,
+        participants,
         isJoined,
         isConnecting,
         error: videoError,
@@ -41,7 +42,7 @@ const ClassroomHost = () => {
         toggleAudio,
         toggleScreenShare,
         isScreenSharing
-    } = useVideoRoom(sessionId);
+    } = useVideoRoom();
 
     // State for local media controls (visual only, actual toggle handled by hook)
     const [isVideoOn, setIsVideoOn] = useState(true);
@@ -68,15 +69,13 @@ const ClassroomHost = () => {
                 if (sessionError) throw sessionError;
                 setSession(sessionData);
 
-                // Join the Daily WebRTC room as soon as we have session data — only once
+                // Join the LiveKit room as soon as we have session data — only once
                 if (sessionData && !joinedRef.current) {
                     joinedRef.current = true;
-                    if (sessionData.room_url) {
-                        joinRoom(sessionData.room_url, "Teacher");
-                    } else {
-                        console.warn("No dynamic room URL found, falling back to demo room");
-                        joinRoom("https://starbridgetutoring.daily.co/demo-classroom", "Teacher");
-                    }
+                    const roomName = sessionData.room_url || generateRoomName(sessionId || sessionData.id || '');
+                    const participantId = `host-${sessionId || sessionData.id || 'host'}`;
+                    const { token, url } = await generateLiveKitToken(roomName, 'Teacher', participantId);
+                    await joinRoom(url, token, roomName, 'Teacher');
                 }
 
                 // Fetch slides
@@ -88,7 +87,7 @@ const ClassroomHost = () => {
                 // Fetch existing participants
                 const { data: participantsData } = await api.participants.getBySessionId(sessionId);
 
-                setParticipants(participantsData || []);
+                setSessionParticipants(participantsData || []);
 
             } catch (error) {
                 console.error('Error loading session:', error);
@@ -104,7 +103,7 @@ const ClassroomHost = () => {
         const channel = supabase
             .channel(`session:${sessionId}`)
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'session_participants', filter: `session_id=eq.${sessionId}` }, (payload) => {
-                setParticipants(prev => [...prev, payload.new]);
+                setSessionParticipants(prev => [...prev, payload.new]);
             })
             .subscribe();
 
@@ -261,9 +260,7 @@ const ClassroomHost = () => {
                 </div>
             </div>
 
-            <DailyProvider callObject={callObject}>
-                <DailyAudio />
-                <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex overflow-hidden">
                     {/* Connection Status Indicator */}
                     {isConnecting && (
                         <div className="absolute top-20 left-6 bg-yellow-900 text-yellow-100 px-4 py-2 rounded-lg text-sm font-bold z-10">
@@ -272,7 +269,7 @@ const ClassroomHost = () => {
                     )}
 
                     {/* Video Sidebar */}
-                    {(isJoined || isConnecting) && <VideoSidebar />}
+                    {(isJoined || isConnecting) && <VideoSidebar room={room} participants={participants} />}
 
                     {/* Main Stage */}
                     <div className="flex-1 relative bg-white flex flex-col">
@@ -362,7 +359,6 @@ const ClassroomHost = () => {
                         </div>
                     </div>
                 </div>
-            </DailyProvider>
         </div>
     );
 };

@@ -1,140 +1,195 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import DailyIframe from '@daily-co/daily-js';
+import { connect, Room } from 'livekit-client';
 
 /**
  * useVideoRoom
- * Manages a Daily.co call object for 1-on-1 sessions.
- * Uses a ref to hold the callObject so that joinRoom/leaveRoom callbacks
- * remain stable and don't cause infinite re-render loops.
+ * Manages a LiveKit room connection for 1-on-1 sessions and group classes
+ * Handles connection lifecycle, local media controls, and screen sharing
  */
 export function useVideoRoom() {
-    // callObjectRef holds the live instance (stable, no re-renders on change)
-    const callObjectRef = useRef(null);
-    // callObject state is only used to expose it to <DailyProvider>
-    const [callObject, setCallObject] = useState(null);
+    const roomRef = useRef(null);
+    const [room, setRoom] = useState(null);
     const [isJoined, setIsJoined] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
     const [error, setError] = useState(null);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
+    const [participants, setParticipants] = useState([]);
+    const [localTracks, setLocalTracks] = useState({ audio: true, video: true });
 
-    const joinRoom = useCallback(async (roomUrl, participantName) => {
+    const joinRoom = useCallback(async (liveKitUrl, token, roomName, participantName) => {
         // Guard: don't join twice
-        if (callObjectRef.current) return;
+        if (roomRef.current) {
+            console.warn('[useVideoRoom] Already connected to a room');
+            return;
+        }
 
         setIsConnecting(true);
         setError(null);
 
         try {
-            const newCallObject = DailyIframe.createCallObject({
-                videoSource: true,
-                audioSource: true,
-                dailyConfig: {
-                    experimentalGeckoNetworkLogging: true,
+            if (!liveKitUrl || !token || !roomName) {
+                throw new Error('Missing required parameters: liveKitUrl, token, roomName');
+            }
+
+            // Create and configure LiveKit room
+            const newRoom = new Room({
+                autoConnect: false,
+                autoSubscribe: true,
+                dynacast: true,
+                publishDefaults: {
+                    codec: 'vp9',
+                    simulcast: true,
+                    screenShareEncoding: {
+                        maxBitrate: 500000,
+                        maxFramerate: 15,
+                    },
                 },
             });
 
-            // Store in ref immediately (stable reference)
-            callObjectRef.current = newCallObject;
-            // Also push to state so DailyProvider re-renders
-            setCallObject(newCallObject);
+            roomRef.current = newRoom;
+            setRoom(newRoom);
 
-            newCallObject.on('joining-meeting', () => setIsConnecting(true));
-            newCallObject.on('joined-meeting', () => {
+            // Set up event listeners
+            newRoom.on('connected', () => {
+                console.log('[LiveKit] Connected to room');
                 setIsJoined(true);
                 setIsConnecting(false);
             });
-            newCallObject.on('left-meeting', () => {
+
+            newRoom.on('disconnected', () => {
+                console.log('[LiveKit] Disconnected from room');
                 setIsJoined(false);
                 setIsConnecting(false);
             });
-            newCallObject.on('error', (e) => {
-                console.error('Daily error:', e);
-                setError(e.errorMsg || 'An error occurred in the video call.');
+
+            newRoom.on('participantConnected', (participant) => {
+                console.log('[LiveKit] Participant connected:', participant.name);
+                setParticipants((prev) => [...prev, participant]);
+            });
+
+            newRoom.on('participantDisconnected', (participant) => {
+                console.log('[LiveKit] Participant disconnected:', participant.name);
+                setParticipants((prev) => prev.filter((p) => p.sid !== participant.sid));
+            });
+
+            newRoom.on('error', (error) => {
+                console.error('[LiveKit] Room error:', error);
+                setError(error.message || 'An error occurred in the video call.');
                 setIsConnecting(false);
             });
 
-            await newCallObject.join({ url: roomUrl, userName: participantName });
+            // Connect to room with token and publish local audio/video
+            await newRoom.connect(liveKitUrl, token, {
+                name: participantName,
+                audio: true,
+                video: true,
+            });
+            
+            // Get initial participants
+            setParticipants(Array.from(newRoom.participants.values()));
         } catch (err) {
-            console.error('Failed to join room:', err);
+            console.error('[useVideoRoom] Failed to join room:', err);
             setError(err.message || 'Failed to join the video room.');
             setIsConnecting(false);
-            callObjectRef.current = null;
+            roomRef.current = null;
+            setRoom(null);
         }
-    }, []); // No dependencies — stable forever
+    }, []);
 
     const leaveRoom = useCallback(async () => {
-        const co = callObjectRef.current;
-        if (!co) return;
+        const r = roomRef.current;
+        if (!r) return;
+
         try {
-            await co.leave();
-            co.destroy();
-        } catch (_) {
-            // ignore errors on leave
+            await r.disconnect();
+        } catch (err) {
+            console.error('[useVideoRoom] Error disconnecting:', err);
         }
-        callObjectRef.current = null;
-        setCallObject(null);
+
+        roomRef.current = null;
+        setRoom(null);
         setIsJoined(false);
         setIsConnecting(false);
         setIsScreenSharing(false);
+        setParticipants([]);
     }, []);
 
     const toggleVideo = useCallback(() => {
-        const co = callObjectRef.current;
-        if (!co) return;
-        co.setLocalVideo(!co.localVideo());
-    }, []);
+        const r = roomRef.current;
+        if (!r) return;
+
+        const currentState = localTracks.video;
+        if (currentState) {
+            if (typeof r.localParticipant?.setCameraEnabled === 'function') {
+                r.localParticipant.setCameraEnabled(false);
+            } else {
+                r.localParticipant?.setVideoEnabled?.(false);
+            }
+        } else {
+            if (typeof r.localParticipant?.setCameraEnabled === 'function') {
+                r.localParticipant.setCameraEnabled(true);
+            } else {
+                r.localParticipant?.setVideoEnabled?.(true);
+            }
+        }
+        setLocalTracks((prev) => ({ ...prev, video: !prev.video }));
+    }, [localTracks.video]);
 
     const toggleAudio = useCallback(() => {
-        const co = callObjectRef.current;
-        if (!co) return;
-        co.setLocalAudio(!co.localAudio());
-    }, []);
+        const r = roomRef.current;
+        if (!r) return;
+
+        const currentState = localTracks.audio;
+        if (currentState) {
+            if (typeof r.localParticipant?.setMicrophoneEnabled === 'function') {
+                r.localParticipant.setMicrophoneEnabled(false);
+            } else {
+                r.localParticipant?.setAudioEnabled?.(false);
+            }
+        } else {
+            if (typeof r.localParticipant?.setMicrophoneEnabled === 'function') {
+                r.localParticipant.setMicrophoneEnabled(true);
+            } else {
+                r.localParticipant?.setAudioEnabled?.(true);
+            }
+        }
+        setLocalTracks((prev) => ({ ...prev, audio: !prev.audio }));
+    }, [localTracks.audio]);
 
     const toggleScreenShare = useCallback(async () => {
-        const co = callObjectRef.current;
-        if (!co) return;
+        const r = roomRef.current;
+        if (!r) return;
+
         try {
             if (isScreenSharing) {
-                await co.stopScreenShare();
+                await r.localParticipant?.stopScreenShare();
                 setIsScreenSharing(false);
             } else {
-                await co.startScreenShare();
+                await r.localParticipant?.setScreenShareEnabled(true);
                 setIsScreenSharing(true);
             }
         } catch (err) {
-            console.error('Failed to toggle screenshare:', err);
-            setIsScreenSharing(false);
+            console.error('[useVideoRoom] Screen share error:', err);
+            setError(err.message || 'Failed to toggle screen share.');
         }
     }, [isScreenSharing]);
 
-    // Listen for browser-initiated screen-share stop (e.g. clicking "Stop sharing" banner)
-    useEffect(() => {
-        const co = callObjectRef.current;
-        if (!co) return;
-
-        const handleScreenShareStopped = () => setIsScreenSharing(false);
-        co.on('local-screen-share-stopped', handleScreenShareStopped);
-
-        return () => {
-            co.off('local-screen-share-stopped', handleScreenShareStopped);
-        };
-    }, [callObject]); // Re-subscribe when callObject changes
+    const getLocalParticipant = useCallback(() => {
+        return roomRef.current?.localParticipant || null;
+    }, []);
 
     // Cleanup on unmount
     useEffect(() => {
         return () => {
-            const co = callObjectRef.current;
-            if (co) {
-                co.leave().catch(() => {}).finally(() => {
-                    co.destroy();
-                    callObjectRef.current = null;
-                });
+            if (roomRef.current) {
+                roomRef.current.disconnect();
+                roomRef.current = null;
             }
         };
     }, []);
 
     return {
-        callObject,
+        room,
         isJoined,
         isConnecting,
         error,
@@ -144,5 +199,9 @@ export function useVideoRoom() {
         toggleAudio,
         toggleScreenShare,
         isScreenSharing,
+        participants,
+        localTracks,
+        getLocalParticipant,
     };
 }
+

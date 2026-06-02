@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { Sparkles, MessageSquare, HelpCircle, CheckCircle, BarChart2, Youtube, Image as ImageIcon, Video, VideoOff, Mic, MicOff, MonitorUp } from 'lucide-react';
-import { DailyProvider, DailyAudio } from '@daily-co/daily-react';
 import VideoSidebar from '../components/Classroom/VideoSidebar';
 import { useVideoRoom } from '../hooks/useVideoRoom';
+import { generateLiveKitToken, generateRoomName } from '../services/videoService';
 import { supabase } from '../lib/supabase';
 import { api } from '../services/api';
 import QuranStage from '../components/Classroom/Stage/QuranStage';
@@ -41,7 +41,8 @@ const ClassroomStudent = () => {
     }, [student]);
 
     const {
-        callObject,
+        room,
+        participants,
         isJoined,
         error: videoError,
         joinRoom,
@@ -50,7 +51,7 @@ const ClassroomStudent = () => {
         toggleAudio,
         toggleScreenShare,
         isScreenSharing
-    } = useVideoRoom(sessionId);
+    } = useVideoRoom();
 
     const [isVideoOn, setIsVideoOn] = useState(true);
     const [isAudioOn, setIsAudioOn] = useState(true);
@@ -93,12 +94,10 @@ const ClassroomStudent = () => {
                 // Join logic for WebRTC — only once
                 if (!joinedRef.current) {
                     joinedRef.current = true;
-                    if (sessionData.room_url) {
-                        joinRoom(sessionData.room_url, guestName);
-                    } else {
-                        console.warn("No dynamic room URL found, falling back to demo room");
-                        joinRoom("https://starbridgetutoring.daily.co/demo-classroom", guestName);
-                    }
+                    const roomName = sessionData.room_url || generateRoomName(sessionId || sessionData.id || '');
+                    const participantId = student?.id || `guest-${Date.now()}`;
+                    const { token, url } = await generateLiveKitToken(roomName, guestName, participantId);
+                    await joinRoom(url, token, roomName, guestName);
                 }
 
                 // Supabase Realtime Subscription targeting active_sessions table
@@ -376,11 +375,9 @@ const ClassroomStudent = () => {
                 </div>
             </header>
 
-            <DailyProvider callObject={callObject}>
-                <DailyAudio />
-                <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex overflow-hidden">
                     {/* Video Sidebar Component */}
-                    {isJoined && <VideoSidebar />}
+                    {isJoined && <VideoSidebar room={room} participants={participants} />}
 
                     {/* Main Interactive Area */}
                     <main className="flex-1 relative p-4 sm:p-6 flex flex-col min-w-0 bg-[#F3F4F6]">
@@ -448,7 +445,6 @@ const ClassroomStudent = () => {
                         </div>
                     </main>
                 </div>
-            </DailyProvider>
         </div>
     );
 };

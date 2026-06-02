@@ -72,7 +72,7 @@ async function runE2ETest() {
     console.log(`   ✅ Booking created (ID: ${booking.id})`);
 
     // 4. Tutor Confirms Booking (Invokes Edge Function)
-    console.log("\n✅ 4. Confirming Booking (Triggering Daily.co Room)...");
+    console.log("\n✅ 4. Confirming Booking (Generating LiveKit Token)...");
     
     // We must manually sign in as the tutor to pass RLS policies for confirming their own booking!
     const { error: signInErr } = await supabase.auth.signInWithPassword({
@@ -81,15 +81,21 @@ async function runE2ETest() {
     });
     if (signInErr) throw signInErr;
 
-    // Simulate api.bookings.confirmWithRoom behavior
-    const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-daily-room');
-    if (edgeError || !edgeData?.room_url) {
+    const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-livekit-token', {
+        body: {
+            sessionId: booking.id,
+            participantName: 'Test Tutor',
+            participantId: tutorId,
+        },
+    });
+    if (edgeError || !edgeData?.token || !edgeData?.roomName) {
       console.error("   ❌ Edge function failed!", edgeError);
-      throw edgeError || new Error("No room URL returned");
+      throw edgeError || new Error("No token or roomName returned");
     }
     
-    const roomUrl = edgeData.room_url;
-    console.log(`   ✅ Edge function returned room: ${roomUrl}`);
+    const token = edgeData.token;
+    const roomUrl = edgeData.roomName;
+    console.log(`   ✅ Edge function returned token for room: ${roomUrl}`);
 
     const { error: confirmErr } = await supabase.from('bookings').update({ 
       status: 'confirmed', 
