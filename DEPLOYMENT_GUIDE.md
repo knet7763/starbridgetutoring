@@ -316,7 +316,7 @@ Alert when:
 ```bash
 # Supabase auto-backs up, but verify:
 Supabase Dashboard → Settings → Database
-# Look for daily snapshots
+# Look for database snapshots
 ```
 
 ### 4. Monitor Analytics

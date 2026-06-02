@@ -7,11 +7,14 @@
 ## Overview
 
 This project now uses **LiveKit** for video conferencing instead of Daily.co. LiveKit provides:
-- Scalable WebRTC infrastructure
+This project now uses **LiveKit** for video conferencing (replaced legacy Daily). LiveKit provides:
+Scalable WebRTC infrastructure
 - Secure token-based authentication
-- Built-in recording and analytics
+## Migration Notes (legacy Daily)
+If you migrated from the legacy Daily platform, the following differences may be useful for reference:
 - Competitive pricing
-- Open-source server option (if self-hosting later)
+| Aspect | Daily (legacy) | LiveKit |
+| Room URL | `https://daily.co/room-name` | `wss://project.livekit.cloud` + token |
 
 ---
 
