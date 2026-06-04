@@ -83,6 +83,7 @@ async function runE2ETest() {
 
     const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-livekit-token', {
         body: {
+            resourceType: 'booking',
             sessionId: booking.id,
             participantName: 'Test Tutor',
             participantId: tutorId,

@@ -16,7 +16,7 @@ const AdminLogin = () => {
         setError('');
         setLoading(true);
 
-        const { error } = await signIn(email, password);
+        const { error } = await signIn(email, password, 'admin');
 
         if (error) {
             setError(error.message);

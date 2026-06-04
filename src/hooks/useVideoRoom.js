@@ -49,6 +49,12 @@ export function useVideoRoom() {
             roomRef.current = newRoom;
             setRoom(newRoom);
 
+            const handleParticipantsUpdate = () => {
+                if (roomRef.current) {
+                    setParticipants(Array.from(roomRef.current.participants.values()));
+                }
+            };
+
             // Set up event listeners
             newRoom.on('connected', () => {
                 console.log('[LiveKit] Connected to room');
@@ -71,6 +77,13 @@ export function useVideoRoom() {
                 console.log('[LiveKit] Participant disconnected:', participant.name);
                 setParticipants((prev) => prev.filter((p) => p.sid !== participant.sid));
             });
+
+            newRoom.on('trackSubscribed', handleParticipantsUpdate);
+            newRoom.on('trackUnsubscribed', handleParticipantsUpdate);
+            newRoom.on('trackPublished', handleParticipantsUpdate);
+            newRoom.on('trackUnpublished', handleParticipantsUpdate);
+            newRoom.on('localTrackPublished', handleParticipantsUpdate);
+            newRoom.on('localTrackUnpublished', handleParticipantsUpdate);
 
             newRoom.on('error', (error) => {
                 console.error('[LiveKit] Room error:', error);

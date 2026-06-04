@@ -20,10 +20,11 @@ export const AuthProvider = ({ children }) => {
     const initialized = useRef(false);
 
     const getRoleFromUser = (user) => {
-        return user?.app_metadata?.role || user?.user_metadata?.role || null;
+        const role = user?.app_metadata?.role;
+        return role === 'teacher' || role === 'admin' ? role : null;
     };
 
-    const loadStudentProfile = async (userId) => {
+    const loadStudentProfile = async (userId, { markMissing = false } = {}) => {
         try {
             const { data, error } = await supabase
                 .from('student_profiles')
@@ -38,11 +39,15 @@ export const AuthProvider = ({ children }) => {
                 setProfileMissing(false);
             } else {
                 setStudent(null);
-                setProfileMissing(true);
+                setProfileMissing(markMissing);
             }
+
+            return data;
         } catch (error) {
             console.error('Error loading student profile:', error);
             setStudent(null);
+            setProfileMissing(markMissing);
+            return null;
         }
     };
 
@@ -52,26 +57,40 @@ export const AuthProvider = ({ children }) => {
 
         let mounted = true;
 
+        const applySession = async (session) => {
+            if (!session?.user) {
+                setUser(null);
+                setStudent(null);
+                setRole(null);
+                setProfileMissing(false);
+                return;
+            }
+
+            const trustedRole = getRoleFromUser(session.user);
+            const expectedRole = localStorage.getItem('sb_role');
+
+            setUser(session.user);
+
+            if (trustedRole) {
+                setRole(trustedRole);
+                setStudent(null);
+                setProfileMissing(false);
+                return;
+            }
+
+            const studentProfile = await loadStudentProfile(session.user.id, {
+                markMissing: expectedRole === 'student',
+            });
+
+            setRole(studentProfile ? 'student' : null);
+        };
+
         const initializeAuth = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!mounted) return;
 
-                if (session?.user) {
-                    const sessionRole = getRoleFromUser(session.user);
-                    setUser(session.user);
-                    setRole(sessionRole);
-
-                    if (sessionRole === 'student') {
-                        await loadStudentProfile(session.user.id);
-                    } else {
-                        setStudent(null);
-                    }
-                } else {
-                    setUser(null);
-                    setStudent(null);
-                    setRole(null);
-                }
+                await applySession(session);
             } catch (error) {
                 console.error('Auth initialization error:', error);
             } finally {
@@ -84,25 +103,12 @@ export const AuthProvider = ({ children }) => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!mounted) return;
 
-            if (session?.user) {
-                const sessionRole = getRoleFromUser(session.user);
-                setUser(prev => prev?.id === session.user.id ? prev : session.user);
-                setRole(sessionRole);
+            await applySession(session);
 
-                if (sessionRole === 'student') {
-                    await loadStudentProfile(session.user.id);
-                } else {
-                    setStudent(null);
-                }
-            } else {
-                setUser(null);
-                setStudent(null);
-                setRole(null);
-                if (event === 'SIGNED_OUT') {
-                    localStorage.removeItem('sb_role');
-                }
+            if (!session?.user && event === 'SIGNED_OUT') {
+                localStorage.removeItem('sb_role');
             }
-            setLoading(false);
+            if (mounted) setLoading(false);
         });
 
         return () => {
@@ -111,8 +117,10 @@ export const AuthProvider = ({ children }) => {
         };
     }, []);
 
-    const signIn = async (email, password, role = 'teacher') => {
-        localStorage.setItem('sb_role', role);
+    const signIn = async (email, password, expectedRole = 'teacher') => {
+        if (expectedRole) {
+            localStorage.setItem('sb_role', expectedRole);
+        }
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
         if (error) {
@@ -120,30 +128,17 @@ export const AuthProvider = ({ children }) => {
             return { data, error };
         }
 
-        // Persist role metadata in Supabase so server-side edge functions can verify teacher/admin access.
-        if (data?.user && role) {
-            try {
-                const { data: updatedData, error: updateError } = await supabase.auth.updateUser({
-                    data: { role },
-                });
-                if (!updateError && updatedData?.user) {
-                    setUser(updatedData.user);
-                }
-            } catch (updateErr) {
-                console.warn('Unable to persist auth role metadata:', updateErr);
-            }
-        }
-
         return { data, error };
     };
 
     const signUp = async (email, password, metadata = {}) => {
         localStorage.setItem('sb_role', 'student');
+        const { role: _ignoredRole, ...safeMetadata } = metadata;
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
-                data: { role: 'student', ...metadata },
+                data: safeMetadata,
             },
         });
         if (error) {
@@ -158,6 +153,7 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setStudent(null);
         setRole(null);
+        setProfileMissing(false);
         return { error };
     };
 

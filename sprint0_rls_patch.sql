@@ -19,7 +19,7 @@ CREATE POLICY "Students can read slides in active sessions" ON slides
 -- 2. Ensure slides RLS is enabled (safe if already on)
 ALTER TABLE slides ENABLE ROW LEVEL SECURITY;
 
--- 3. Fix slides type CHECK constraint to include 'youtube' and 'shout_it_out'
+-- 3. Fix slides type CHECK constraint to include all current lesson slide types
 --    This prevents insert failures for those slide types on a fresh schema
 DO $$
 DECLARE
@@ -36,8 +36,10 @@ BEGIN
     END IF;
 
     ALTER TABLE slides ADD CONSTRAINT slides_type_check
-        CHECK (type IN ('blank', 'image', 'quiz', 'poll', 'video', 'shout_it_out', 'youtube'));
+        CHECK (type IN ('blank', 'image', 'quiz', 'poll', 'video', 'shout_it_out', 'youtube', 'quran', 'hadith', 'fiqh'));
 END $$;
+
+ALTER TABLE active_sessions ADD COLUMN IF NOT EXISTS room_url TEXT;
 
 -- 4. classes table — create if it doesn't exist yet
 --    (TeacherDashboard now writes to 'classes' for class management)

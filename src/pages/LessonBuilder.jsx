@@ -43,13 +43,31 @@ const LessonBuilder = () => {
         setTimeout(() => setToast(null), 3500);
     }, []);
 
-    const handleLaunchVideo = () => {
-        // Jitsi Meet is 100% free and open-source — no API key required.
-        // We generate a unique room name and open meet.jit.si directly.
-        const roomName = `StarBridge-${lessonId.substring(0, 8)}-${Math.random().toString(36).substring(2, 7)}`;
-        const url = `https://meet.jit.si/${roomName}`;
-        window.open(url, '_blank');
-        showToast('1-on-1 video room launched! Share the link with your student.');
+    const handleLaunchVideo = async () => {
+        // Start an in-app Live session (uses LiveKit via ClassroomHost)
+        try {
+            if (!user) return showToast('Please sign in to start a session', 'error');
+
+            const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const payload = {
+                lesson_id: lessonId,
+                tutor_id: user.id,
+                code,
+                is_active: true,
+            };
+
+            const { data, error } = await api.sessions.start(payload);
+            if (error) throw error;
+
+            const sessionId = data?.id;
+            if (!sessionId) throw new Error('Failed to create session');
+
+            showToast('Live session started — opening classroom...');
+            navigate(`/classroom/host/${sessionId}`);
+        } catch (err) {
+            console.error('Failed to launch live session:', err);
+            showToast(err.message || 'Failed to start live session', 'error');
+        }
     };
 
 

@@ -53,7 +53,13 @@ const JoinClass = () => {
                 console.warn('Could not register participant:', participantError.message);
             }
 
-            navigate(`/classroom/join/${sessionId}`, { state: { guestName: name.trim() } });
+            sessionStorage.setItem(`sb_join_code_${sessionId}`, code.trim().toUpperCase());
+            navigate(`/classroom/join/${sessionId}`, {
+                state: {
+                    guestName: name.trim(),
+                    joinCode: code.trim().toUpperCase(),
+                },
+            });
         } catch (err) {
             setError('Something went wrong. Please try again.');
         } finally {

@@ -66,8 +66,8 @@ CREATE TABLE IF NOT EXISTS slides (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     lesson_id UUID REFERENCES lessons(id) ON DELETE CASCADE,
     order_index INTEGER NOT NULL,
-    -- 'youtube' added in Sprint 0 patch; 'video' kept for backward compat
-    type TEXT DEFAULT 'blank' CHECK (type IN ('blank', 'image', 'quiz', 'poll', 'video', 'shout_it_out', 'youtube')),
+    -- 'video' kept for backward compatibility with older lesson content.
+    type TEXT DEFAULT 'blank' CHECK (type IN ('blank', 'image', 'quiz', 'poll', 'video', 'shout_it_out', 'youtube', 'quran', 'hadith', 'fiqh')),
     content JSONB DEFAULT '{}',       -- e.g. { question, options, url, caption }
     drawing_data JSONB DEFAULT '{}',  -- tldraw whiteboard snapshot
     created_at TIMESTAMP DEFAULT NOW()
@@ -148,6 +148,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled')),
+    room_url TEXT,              -- LiveKit room name for confirmed sessions
     notes TEXT,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -228,6 +229,8 @@ BEGIN
     BEGIN DROP POLICY IF EXISTS "Students can view their bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Students can create bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Students can update their bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
+    BEGIN DROP POLICY IF EXISTS "Tutors can view their bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
+    BEGIN DROP POLICY IF EXISTS "Tutors can update their bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Admins can manage all bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
 END $$;
 
@@ -292,7 +295,7 @@ CREATE POLICY "Users can update their own profile" ON student_profiles FOR UPDAT
 -- Enrollments
 CREATE POLICY "Students can view their enrollments" ON enrollments FOR SELECT USING (auth.uid() = student_id);
 CREATE POLICY "Students can create enrollments" ON enrollments FOR INSERT WITH CHECK (auth.uid() = student_id);
-CREATE POLICY "Admins can manage all enrollments" ON enrollments FOR ALL USING (auth.jwt()->>'role' = 'admin');
+CREATE POLICY "Admins can manage all enrollments" ON enrollments FOR ALL USING (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
 -- Lesson Progress
 CREATE POLICY "Students can view their progress" ON lesson_progress FOR SELECT USING (auth.uid() = student_id);
@@ -300,13 +303,15 @@ CREATE POLICY "Students can update their progress" ON lesson_progress FOR ALL US
 
 -- Tutor Availability
 CREATE POLICY "Anyone can view tutor availability" ON tutor_availability FOR SELECT USING (true);
-CREATE POLICY "Admins can manage availability" ON tutor_availability FOR ALL USING (auth.jwt()->>'role' = 'admin');
+CREATE POLICY "Admins can manage availability" ON tutor_availability FOR ALL USING (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
 -- Bookings
 CREATE POLICY "Students can view their bookings" ON bookings FOR SELECT USING (auth.uid() = student_id);
 CREATE POLICY "Students can create bookings" ON bookings FOR INSERT WITH CHECK (auth.uid() = student_id);
 CREATE POLICY "Students can update their bookings" ON bookings FOR UPDATE USING (auth.uid() = student_id);
-CREATE POLICY "Admins can manage all bookings" ON bookings FOR ALL USING (auth.jwt()->>'role' = 'admin');
+CREATE POLICY "Tutors can view their bookings" ON bookings FOR SELECT USING (auth.uid() = tutor_id);
+CREATE POLICY "Tutors can update their bookings" ON bookings FOR UPDATE USING (auth.uid() = tutor_id);
+CREATE POLICY "Admins can manage all bookings" ON bookings FOR ALL USING (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
 
 -- =========================================================================

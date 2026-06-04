@@ -73,9 +73,14 @@ const ClassroomHost = () => {
                 if (sessionData && !joinedRef.current) {
                     joinedRef.current = true;
                     const roomName = sessionData.room_url || generateRoomName(sessionId || sessionData.id || '');
-                    const participantId = `host-${sessionId || sessionData.id || 'host'}`;
-                    const { token, url } = await generateLiveKitToken(roomName, 'Teacher', participantId);
-                    await joinRoom(url, token, roomName, 'Teacher');
+                    const participantId = sessionData.tutor_id || `host-${sessionId || sessionData.id || 'host'}`;
+                    const { token, url, roomName: authorizedRoomName } = await generateLiveKitToken(
+                        sessionData.id || sessionId,
+                        'Teacher',
+                        participantId,
+                        { resourceType: 'active_session', roomName }
+                    );
+                    await joinRoom(url, token, authorizedRoomName || roomName, 'Teacher');
                 }
 
                 // Fetch slides

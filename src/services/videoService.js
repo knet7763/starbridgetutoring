@@ -6,6 +6,8 @@
  * Token Generation: Supabase Edge Function (server-side for security)
  */
 
+import { supabase } from '../lib/supabase';
+
 const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL;
 
 /**
@@ -26,12 +28,13 @@ function isValidLiveKitUrl(url) {
  * Generates a LiveKit access token for a participant
  * Uses Supabase Edge Function to ensure API key security
  * 
- * @param {string} sessionId - The active_sessions record ID or meeting room name
+ * @param {string} resourceId - The active_sessions or bookings record ID
  * @param {string} participantName - Name of the participant joining
  * @param {string} participantId - Unique participant ID (user ID or guest ID)
+ * @param {Object} options - Token context such as resourceType, roomName, and joinCode
  * @returns {Promise<{token: string, url: string}>} LiveKit token and URL
  */
-export async function generateLiveKitToken(sessionId, participantName, participantId) {
+export async function generateLiveKitToken(resourceId, participantName, participantId, options = {}) {
     try {
         if (!LIVEKIT_URL) {
             throw new Error('VITE_LIVEKIT_URL not configured');
@@ -41,6 +44,9 @@ export async function generateLiveKitToken(sessionId, participantName, participa
             throw new Error(`Invalid LiveKit URL: ${LIVEKIT_URL}`);
         }
 
+        const { data: { session } } = await supabase.auth.getSession();
+        const accessToken = session?.access_token;
+
         // Call Supabase Edge Function to generate token securely
         const response = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-livekit-token`,
@@ -48,12 +54,16 @@ export async function generateLiveKitToken(sessionId, participantName, participa
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('sb-access-token') || ''}`,
+                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
                 },
                 body: JSON.stringify({
-                    sessionId,
+                    resourceId,
+                    sessionId: resourceId,
                     participantName,
                     participantId,
+                    resourceType: options.resourceType || 'active_session',
+                    roomName: options.roomName,
+                    joinCode: options.joinCode,
                 }),
             }
         );
@@ -63,7 +73,7 @@ export async function generateLiveKitToken(sessionId, participantName, participa
             throw new Error(error.message || 'Failed to generate LiveKit token');
         }
 
-        const { token } = await response.json();
+        const { token, roomName } = await response.json();
         if (!token) {
             throw new Error('Invalid token returned from server');
         }
@@ -71,6 +81,7 @@ export async function generateLiveKitToken(sessionId, participantName, participa
         return {
             token,
             url: LIVEKIT_URL,
+            roomName,
         };
     } catch (error) {
         console.error('[VideoService] Failed to generate LiveKit token:', error);
@@ -106,8 +117,10 @@ export function isValidRoomName(roomName) {
  * @returns {string}
  */
 export function generateRoomName(sessionId) {
+    if (!sessionId) return '';
+
     // Take first 8 chars of UUID, replace hyphens with underscores
-    return sessionId.substring(0, 8).replace(/-/g, '_');
+    return String(sessionId).substring(0, 8).replace(/-/g, '_');
 }
 
 export default {

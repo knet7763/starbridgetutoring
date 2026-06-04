@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS slides (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     lesson_id UUID REFERENCES lessons(id) ON DELETE CASCADE,
     order_index INTEGER NOT NULL,
-    type TEXT DEFAULT 'blank' CHECK (type IN ('blank', 'image', 'quiz', 'poll', 'video', 'shout_it_out')),
+    type TEXT DEFAULT 'blank' CHECK (type IN ('blank', 'image', 'quiz', 'poll', 'video', 'shout_it_out', 'youtube', 'quran', 'hadith', 'fiqh')),
     content JSONB DEFAULT '{}', -- Stores generic content (text, image url, quiz data)
     drawing_data JSONB DEFAULT '{}', -- Stores initial whiteboard state
     created_at TIMESTAMP DEFAULT NOW()
@@ -69,7 +69,7 @@ BEGIN
     END IF;
     
     -- Add the updated constraint
-    ALTER TABLE slides ADD CONSTRAINT slides_type_check CHECK (type IN ('blank', 'image', 'quiz', 'poll', 'video', 'shout_it_out'));
+    ALTER TABLE slides ADD CONSTRAINT slides_type_check CHECK (type IN ('blank', 'image', 'quiz', 'poll', 'video', 'shout_it_out', 'youtube', 'quran', 'hadith', 'fiqh'));
 END $$;
 
 -- 3. Phase 3 Student profiles (extends Supabase auth.users) -- Required before participants
@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS active_sessions (
     tutor_id UUID REFERENCES tutors(id) ON DELETE CASCADE,
     current_slide_id UUID REFERENCES slides(id),
     code TEXT UNIQUE NOT NULL, -- 6-character join code
+    room_url TEXT, -- LiveKit room name for this session
     is_active BOOLEAN DEFAULT true,
     started_at TIMESTAMP DEFAULT NOW(),
     ended_at TIMESTAMP
@@ -253,6 +254,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled')),
+    room_url TEXT,
     notes TEXT,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -319,7 +321,7 @@ CREATE POLICY "Students can view their enrollments" ON enrollments
     FOR SELECT USING (auth.uid() = student_id);
 
 CREATE POLICY "Admins can manage all enrollments" ON enrollments
-    FOR ALL USING (auth.jwt() ->>'role' = 'admin');
+    FOR ALL USING (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
 -- Lesson progress: Students can view and update their own
 ALTER TABLE lesson_progress ENABLE ROW LEVEL SECURITY;
@@ -337,7 +339,7 @@ CREATE POLICY "Anyone can view tutor availability" ON tutor_availability
     FOR SELECT USING (true);
 
 CREATE POLICY "Admins can manage availability" ON tutor_availability
-    FOR ALL USING (auth.jwt() ->>'role' = 'admin');
+    FOR ALL USING (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
 -- Bookings: Students can view/create their own, tutors can view theirs
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
@@ -358,4 +360,4 @@ CREATE POLICY "Tutors can update their bookings" ON bookings
     FOR UPDATE USING (auth.uid() = tutor_id);
 
 CREATE POLICY "Admins can manage all bookings" ON bookings
-    FOR ALL USING (auth.jwt() ->>'role' = 'admin');
+    FOR ALL USING (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');

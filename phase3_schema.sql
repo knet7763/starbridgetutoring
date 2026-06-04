@@ -60,6 +60,8 @@ CREATE TABLE IF NOT EXISTS bookings (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS room_url TEXT;
+
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_tutor ON enrollments(tutor_id);
@@ -96,7 +98,7 @@ CREATE POLICY "Students can view their enrollments" ON enrollments
 
 DROP POLICY IF EXISTS "Admins can manage all enrollments" ON enrollments;
 CREATE POLICY "Admins can manage all enrollments" ON enrollments
-    FOR ALL USING (auth.jwt() ->>'role' = 'admin');
+    FOR ALL USING (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
 -- Lesson progress: Students can view and update their own
 ALTER TABLE lesson_progress ENABLE ROW LEVEL SECURITY;
@@ -118,7 +120,7 @@ CREATE POLICY "Anyone can view tutor availability" ON tutor_availability
 
 DROP POLICY IF EXISTS "Admins can manage availability" ON tutor_availability;
 CREATE POLICY "Admins can manage availability" ON tutor_availability
-    FOR ALL USING (auth.jwt() ->>'role' = 'admin');
+    FOR ALL USING (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
 -- Bookings: Students can view/create their own, tutors can view theirs
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
@@ -149,4 +151,4 @@ CREATE POLICY "Students can update their bookings" ON bookings
 
 DROP POLICY IF EXISTS "Admins can manage all bookings" ON bookings;
 CREATE POLICY "Admins can manage all bookings" ON bookings
-    FOR ALL USING (auth.jwt() ->>'role' = 'admin');
+    FOR ALL USING (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
