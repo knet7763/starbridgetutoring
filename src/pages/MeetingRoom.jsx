@@ -100,8 +100,6 @@ const MeetingRoom = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeTool, setActiveTool] = useState('video');
-    const [isVideoOn, setIsVideoOn] = useState(true);
-    const [isAudioOn, setIsAudioOn] = useState(true);
     const joinedRef = useRef(false);
 
     const {
@@ -116,6 +114,7 @@ const MeetingRoom = () => {
         toggleAudio,
         toggleScreenShare,
         isScreenSharing,
+        localTracks,
     } = useVideoRoom();
 
     const displayName = user?.user_metadata?.full_name || student?.full_name || user?.email || 'Guest';
@@ -200,16 +199,6 @@ const MeetingRoom = () => {
             leaveRoom();
         };
     }, [leaveRoom]);
-
-    const handleToggleVideo = () => {
-        setIsVideoOn((value) => !value);
-        toggleVideo();
-    };
-
-    const handleToggleAudio = () => {
-        setIsAudioOn((value) => !value);
-        toggleAudio();
-    };
 
     const handleLeave = async () => {
         if (window.confirm('Leave this session?')) {
@@ -359,18 +348,18 @@ const MeetingRoom = () => {
                     <div className="p-6 border-t border-white/5 bg-gray-950 shrink-0 flex justify-center">
                         <div className="flex items-center gap-4 bg-gray-900/90 backdrop-blur-md px-6 py-3 rounded-2xl shadow-2xl border border-white/5">
                             <button
-                                onClick={handleToggleAudio}
-                                className={`p-3 rounded-xl transition-all hover:scale-105 active:scale-95 ${isAudioOn ? 'hover:bg-white/5 text-white' : 'bg-red-500 hover:bg-red-600 text-white'}`}
-                                title={isAudioOn ? 'Mute Microphone' : 'Unmute Microphone'}
+                                onClick={toggleAudio}
+                                className={`p-3 rounded-xl transition-all hover:scale-105 active:scale-95 ${localTracks.audio ? 'hover:bg-white/5 text-white' : 'bg-red-500 hover:bg-red-600 text-white'}`}
+                                title={localTracks.audio ? 'Mute Microphone' : 'Unmute Microphone'}
                             >
-                                {isAudioOn ? <Mic size={20} /> : <MicOff size={20} />}
+                                {localTracks.audio ? <Mic size={20} /> : <MicOff size={20} />}
                             </button>
                             <button
-                                onClick={handleToggleVideo}
-                                className={`p-3 rounded-xl transition-all hover:scale-105 active:scale-95 ${isVideoOn ? 'hover:bg-white/5 text-white' : 'bg-red-500 hover:bg-red-600 text-white'}`}
-                                title={isVideoOn ? 'Turn Camera Off' : 'Turn Camera On'}
+                                onClick={toggleVideo}
+                                className={`p-3 rounded-xl transition-all hover:scale-105 active:scale-95 ${localTracks.video ? 'hover:bg-white/5 text-white' : 'bg-red-500 hover:bg-red-600 text-white'}`}
+                                title={localTracks.video ? 'Turn Camera Off' : 'Turn Camera On'}
                             >
-                                {isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}
+                                {localTracks.video ? <Video size={20} /> : <VideoOff size={20} />}
                             </button>
                             <button
                                 onClick={toggleScreenShare}

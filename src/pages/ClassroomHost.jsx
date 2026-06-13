@@ -41,22 +41,9 @@ const ClassroomHost = () => {
         toggleVideo,
         toggleAudio,
         toggleScreenShare,
-        isScreenSharing
+        isScreenSharing,
+        localTracks,
     } = useVideoRoom();
-
-    // State for local media controls (visual only, actual toggle handled by hook)
-    const [isVideoOn, setIsVideoOn] = useState(true);
-    const [isAudioOn, setIsAudioOn] = useState(true);
-
-    const handleToggleVideo = () => {
-        setIsVideoOn(!isVideoOn);
-        toggleVideo();
-    };
-
-    const handleToggleAudio = () => {
-        setIsAudioOn(!isAudioOn);
-        toggleAudio();
-    };
 
     useEffect(() => {
         if (!sessionId) return;
@@ -339,19 +326,19 @@ const ClassroomHost = () => {
                             <div className="w-px h-6 bg-gray-600 mx-2"></div>
 
                             <button
-                                onClick={handleToggleAudio}
-                                className={`p-2 rounded-full transition-colors ${isAudioOn ? 'hover:bg-gray-700' : 'bg-red-500 hover:bg-red-600'}`}
-                                title={isAudioOn ? "Mute Microphone" : "Unmute Microphone"}
+                                onClick={toggleAudio}
+                                className={`p-2 rounded-full transition-colors ${localTracks.audio ? 'hover:bg-gray-700' : 'bg-red-500 hover:bg-red-600'}`}
+                                title={localTracks.audio ? "Mute Microphone" : "Unmute Microphone"}
                             >
-                                {isAudioOn ? <Mic size={20} /> : <MicOff size={20} />}
+                                {localTracks.audio ? <Mic size={20} /> : <MicOff size={20} />}
                             </button>
 
                             <button
-                                onClick={handleToggleVideo}
-                                className={`p-2 rounded-full transition-colors ${isVideoOn ? 'hover:bg-gray-700' : 'bg-red-500 hover:bg-red-600'}`}
-                                title={isVideoOn ? "Turn Camera Off" : "Turn Camera On"}
+                                onClick={toggleVideo}
+                                className={`p-2 rounded-full transition-colors ${localTracks.video ? 'hover:bg-gray-700' : 'bg-red-500 hover:bg-red-600'}`}
+                                title={localTracks.video ? "Turn Camera Off" : "Turn Camera On"}
                             >
-                                {isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}
+                                {localTracks.video ? <Video size={20} /> : <VideoOff size={20} />}
                             </button>
 
                             <button

@@ -127,46 +127,38 @@ export function useVideoRoom() {
         setParticipants([]);
     }, []);
 
-    const toggleVideo = useCallback(() => {
+    const toggleVideo = useCallback(async () => {
         const r = roomRef.current;
         if (!r) return;
 
-        const currentState = localTracks.video;
-        if (currentState) {
+        const nextState = !localTracks.video;
+        try {
             if (typeof r.localParticipant?.setCameraEnabled === 'function') {
-                r.localParticipant.setCameraEnabled(false);
+                await r.localParticipant.setCameraEnabled(nextState);
             } else {
-                r.localParticipant?.setVideoEnabled?.(false);
+                await r.localParticipant?.setVideoEnabled?.(nextState);
             }
-        } else {
-            if (typeof r.localParticipant?.setCameraEnabled === 'function') {
-                r.localParticipant.setCameraEnabled(true);
-            } else {
-                r.localParticipant?.setVideoEnabled?.(true);
-            }
+            setLocalTracks((prev) => ({ ...prev, video: nextState }));
+        } catch (err) {
+            console.error('[useVideoRoom] toggleVideo error:', err);
         }
-        setLocalTracks((prev) => ({ ...prev, video: !prev.video }));
     }, [localTracks.video]);
 
-    const toggleAudio = useCallback(() => {
+    const toggleAudio = useCallback(async () => {
         const r = roomRef.current;
         if (!r) return;
 
-        const currentState = localTracks.audio;
-        if (currentState) {
+        const nextState = !localTracks.audio;
+        try {
             if (typeof r.localParticipant?.setMicrophoneEnabled === 'function') {
-                r.localParticipant.setMicrophoneEnabled(false);
+                await r.localParticipant.setMicrophoneEnabled(nextState);
             } else {
-                r.localParticipant?.setAudioEnabled?.(false);
+                await r.localParticipant?.setAudioEnabled?.(nextState);
             }
-        } else {
-            if (typeof r.localParticipant?.setMicrophoneEnabled === 'function') {
-                r.localParticipant.setMicrophoneEnabled(true);
-            } else {
-                r.localParticipant?.setAudioEnabled?.(true);
-            }
+            setLocalTracks((prev) => ({ ...prev, audio: nextState }));
+        } catch (err) {
+            console.error('[useVideoRoom] toggleAudio error:', err);
         }
-        setLocalTracks((prev) => ({ ...prev, audio: !prev.audio }));
     }, [localTracks.audio]);
 
     const toggleScreenShare = useCallback(async () => {

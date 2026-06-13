@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { Sparkles, MessageSquare, HelpCircle, CheckCircle, BarChart2, Youtube, Image as ImageIcon, Video, VideoOff, Mic, MicOff, MonitorUp, WifiOff, Pencil, PencilOff } from 'lucide-react';
+import { Sparkles, MessageSquare, HelpCircle, CheckCircle, BarChart2, Youtube, Image as ImageIcon, Video, VideoOff, Mic, MicOff, MonitorUp, WifiOff, Pencil, PenLine } from 'lucide-react';
 import VideoSidebar from '../components/Classroom/VideoSidebar';
 import { useVideoRoom } from '../hooks/useVideoRoom';
 import { generateLiveKitToken, generateRoomName } from '../services/videoService';
@@ -28,6 +28,7 @@ const ClassroomStudent = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submittedSlideIds, setSubmittedSlideIds] = useState(new Set());
     const [stars, setStars] = useState(0);
+    const starsRef = useRef(0); // Ref to avoid stale closure in heartbeat interval
     const [showStarPop, setShowStarPop] = useState(false);
     const [roomError, setRoomError] = useState(null);
     const [collabMode, setCollabMode] = useState(false);
@@ -54,7 +55,10 @@ const ClassroomStudent = () => {
     useEffect(() => {
         if (student) {
             api.gamification.getStudentStats(student.id).then(({ data }) => {
-                if (data) setStars(data.stars);
+                if (data) {
+                    starsRef.current = data.stars;
+                    setStars(data.stars);
+                }
             });
         }
     }, [student]);
@@ -69,23 +73,12 @@ const ClassroomStudent = () => {
         toggleVideo,
         toggleAudio,
         toggleScreenShare,
-        isScreenSharing
+        isScreenSharing,
+        localTracks,
     } = useVideoRoom();
 
-    const [isVideoOn, setIsVideoOn] = useState(true);
-    const [isAudioOn, setIsAudioOn] = useState(true);
-
-    const handleToggleVideo = () => {
-        setIsVideoOn(!isVideoOn);
-        toggleVideo();
-    };
-
-    const handleToggleAudio = () => {
-        setIsAudioOn(!isAudioOn);
-        toggleAudio();
-    };
-
     // Heartbeat sender — broadcasts student presence and status to teacher
+    // Uses starsRef so the interval always reads the latest star count
     const sendHeartbeat = useCallback((sessionChannel, currentSlide) => {
         if (!sessionChannel) return;
         sessionChannel.send({
@@ -94,12 +87,12 @@ const ClassroomStudent = () => {
             payload: {
                 name: guestName,
                 studentId: student?.id || 'guest',
-                stars,
+                stars: starsRef.current,
                 currentSlideType: currentSlide?.type || 'unknown',
                 timestamp: Date.now(),
             }
         }).catch(() => {}); // silent failure is fine
-    }, [guestName, student?.id, stars]);
+    }, [guestName, student?.id]);
 
     useEffect(() => {
         let channel;
@@ -192,11 +185,16 @@ const ClassroomStudent = () => {
     }, [sessionId, guestName, joinCode, student?.id, joinRoom, leaveRoom]);
 
     // Award star with confetti + chime
+    // Also keeps starsRef in sync so heartbeat always reads fresh value
     const awardStar = useCallback(async () => {
         if (student) {
             await api.gamification.awardStar(student.id, 1);
         }
-        setStars(prev => prev + 1);
+        setStars(prev => {
+            const next = prev + 1;
+            starsRef.current = next;
+            return next;
+        });
         setShowStarPop(true);
         setTimeout(() => setShowStarPop(false), 2000);
         burstConfetti(starBtnRef.current, 45);
@@ -421,7 +419,7 @@ const ClassroomStudent = () => {
                             : 'bg-gradient-to-r from-gray-700 to-gray-800 text-gray-200'
                         }`}
                 >
-                    {collabMode ? <Pencil size={18} /> : <PencilOff size={18} />}
+                    {collabMode ? <Pencil size={18} /> : <PenLine size={18} />}
                     {collabMode ? '✏️ Collaboration mode ON — you can now draw!' : '🔒 Broadcast mode — board is locked'}
                 </div>
             )}
@@ -507,18 +505,18 @@ const ClassroomStudent = () => {
                     {/* Student AV Controls */}
                     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-gray-800/90 backdrop-blur px-6 py-3 rounded-2xl shadow-2xl border border-gray-700 z-50">
                         <button
-                            onClick={handleToggleAudio}
-                            className={`p-3 rounded-full transition-colors ${isAudioOn ? 'hover:bg-gray-700 text-white' : 'bg-red-500 hover:bg-red-600 text-white'}`}
-                            title={isAudioOn ? "Mute Microphone" : "Unmute Microphone"}
+                            onClick={toggleAudio}
+                            className={`p-3 rounded-full transition-colors ${localTracks.audio ? 'hover:bg-gray-700 text-white' : 'bg-red-500 hover:bg-red-600 text-white'}`}
+                            title={localTracks.audio ? "Mute Microphone" : "Unmute Microphone"}
                         >
-                            {isAudioOn ? <Mic size={20} /> : <MicOff size={20} />}
+                            {localTracks.audio ? <Mic size={20} /> : <MicOff size={20} />}
                         </button>
                         <button
-                            onClick={handleToggleVideo}
-                            className={`p-3 rounded-full transition-colors ${isVideoOn ? 'hover:bg-gray-700 text-white' : 'bg-red-500 hover:bg-red-600 text-white'}`}
-                            title={isVideoOn ? "Turn Camera Off" : "Turn Camera On"}
+                            onClick={toggleVideo}
+                            className={`p-3 rounded-full transition-colors ${localTracks.video ? 'hover:bg-gray-700 text-white' : 'bg-red-500 hover:bg-red-600 text-white'}`}
+                            title={localTracks.video ? "Turn Camera Off" : "Turn Camera On"}
                         >
-                            {isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}
+                            {localTracks.video ? <Video size={20} /> : <VideoOff size={20} />}
                         </button>
                         <button
                             onClick={toggleScreenShare}

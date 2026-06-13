@@ -33,6 +33,7 @@ import TeacherDashboard from './pages/TeacherDashboard';
 import JoinClass from './pages/JoinClass';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import NotFound from './pages/NotFound';
 
 function App() {
     return (
@@ -128,6 +129,9 @@ function App() {
                     />
                     <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route path="/reset-password" element={<ResetPassword />} />
+
+                    {/* 404 catch-all */}
+                    <Route path="*" element={<NotFound />} />
                     </Routes>
                 </React.Suspense>
             </Router>
