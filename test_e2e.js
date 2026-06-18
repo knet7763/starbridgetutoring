@@ -29,9 +29,24 @@ async function runE2ETest() {
     if (tutorErr) throw tutorErr;
     const tutorId = tutorAuth.user.id;
 
-    // Insert Tutor Profile
+    // Sign in as Tutor to bypass RLS for profile insert
+    const { error: tutorSignInErr } = await supabase.auth.signInWithPassword({
+      email: tutorEmail,
+      password: password,
+    });
+    if (tutorSignInErr) throw tutorSignInErr;
+
+    // Insert Tutor Profile (matching actual db schema columns)
     const { error: tutorProfileErr } = await supabase.from('tutors').insert([
-      { id: tutorId, full_name: 'Test Tutor', email: tutorEmail, hourly_rate: 20, subjects: ['Math'] }
+      { 
+        id: tutorId, 
+        name: 'Test Tutor', 
+        subject: 'Mathematics', 
+        bio: 'Test Tutor Bio', 
+        qualification: 'BSc Math',
+        image_url: 'https://api.dicebear.com/7.x/initials/svg?seed=Test+Tutor',
+        languages: ['English']
+      }
     ]);
     if (tutorProfileErr) throw tutorProfileErr;
     console.log(`   ✅ Tutor created (ID: ${tutorId})`);
@@ -45,8 +60,15 @@ async function runE2ETest() {
     if (studentErr) throw studentErr;
     const studentId = studentAuth.user.id;
 
-    // Insert Student Profile
-    const { error: studentProfileErr } = await supabase.from('student_profiles').insert([
+    // Sign in as Student to bypass RLS
+    const { error: studentSignInErr } = await supabase.auth.signInWithPassword({
+      email: studentEmail,
+      password: password,
+    });
+    if (studentSignInErr) throw studentSignInErr;
+
+    // Insert/Upsert Student Profile
+    const { error: studentProfileErr } = await supabase.from('student_profiles').upsert([
       { id: studentId, full_name: 'Test Student', grade_level: '10th' }
     ]);
     if (studentProfileErr) throw studentProfileErr;
