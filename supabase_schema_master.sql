@@ -161,7 +161,6 @@ ALTER TABLE slides ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Tutors manage their slides" ON slides
     USING (EXISTS (SELECT 1 FROM lessons WHERE lessons.id = slides.lesson_id AND lessons.tutor_id = auth.uid()))
     WITH CHECK (EXISTS (SELECT 1 FROM lessons WHERE lessons.id = slides.lesson_id AND lessons.tutor_id = auth.uid()));
-
 -- Active Sessions: Public read (for joining), Tutor write
 ALTER TABLE active_sessions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can view active sessions by code" ON active_sessions
@@ -179,13 +178,21 @@ CREATE POLICY "Anyone can join a session" ON session_participants
 CREATE POLICY "View participants in same session" ON session_participants
     FOR SELECT USING (true);
 
--- Responses: Public insert, Public view
+-- Responses: Public insert, Secure view
 ALTER TABLE responses ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can insert responses" ON responses
     FOR INSERT WITH CHECK (true);
 
 CREATE POLICY "Anyone can view responses" ON responses
-    FOR SELECT USING (true);
+    FOR SELECT
+    USING (
+        auth.uid() = student_id
+        OR auth.uid() = (
+            SELECT tutor_id 
+            FROM active_sessions 
+            WHERE active_sessions.id = responses.session_id
+        )
+    );
 
 -- =====================================
 -- PART 2: DATABASE UPDATES (Tags, Analytics)

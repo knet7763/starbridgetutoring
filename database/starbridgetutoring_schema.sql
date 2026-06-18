@@ -285,7 +285,16 @@ CREATE POLICY "View participants in same session" ON session_participants FOR SE
 
 -- Responses
 CREATE POLICY "Anyone can insert responses" ON responses FOR INSERT WITH CHECK (true);
-CREATE POLICY "Anyone can view responses" ON responses FOR SELECT USING (true);
+CREATE POLICY "Anyone can view responses" ON responses
+    FOR SELECT
+    USING (
+        auth.uid() = student_id
+        OR auth.uid() = (
+            SELECT tutor_id 
+            FROM active_sessions 
+            WHERE active_sessions.id = responses.session_id
+        )
+    );
 
 -- Student Profiles (inserts handled by trigger, but policy kept for direct inserts)
 CREATE POLICY "Anyone can view student profiles" ON student_profiles FOR SELECT USING (true);

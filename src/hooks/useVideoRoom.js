@@ -91,12 +91,28 @@ export function useVideoRoom() {
                 setIsConnecting(false);
             });
 
-            // Connect to room with token and publish local audio/video
+            // Connect to room with token
             await newRoom.connect(liveKitUrl, token, {
-                name: participantName,
-                audio: true,
-                video: true,
+                autoSubscribe: true,
             });
+
+            // Publish local audio/video
+            try {
+                if (typeof newRoom.localParticipant?.setCameraEnabled === 'function') {
+                    await newRoom.localParticipant.setCameraEnabled(true);
+                }
+                if (typeof newRoom.localParticipant?.setMicrophoneEnabled === 'function') {
+                    await newRoom.localParticipant.setMicrophoneEnabled(true);
+                }
+                setLocalTracks({ audio: true, video: true });
+            } catch (mediaErr) {
+                console.error('[useVideoRoom] Failed to publish initial tracks:', mediaErr);
+                // Sync localTracks state with actual participant track state
+                setLocalTracks({
+                    audio: newRoom.localParticipant?.isMicrophoneEnabled || false,
+                    video: newRoom.localParticipant?.isCameraEnabled || false,
+                });
+            }
             
             // Get initial participants
             setParticipants(Array.from(newRoom.participants.values()));
