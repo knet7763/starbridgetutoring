@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS lesson_progress (
     status TEXT DEFAULT 'not_started' CHECK (status IN ('not_started', 'in_progress', 'completed')),
     progress_percent INTEGER DEFAULT 0 CHECK (progress_percent >= 0 AND progress_percent <= 100),
     completed_at TIMESTAMP,
+    feedback_notes TEXT,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(student_id, lesson_id)

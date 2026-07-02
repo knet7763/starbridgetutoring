@@ -35,6 +35,12 @@ const ClassroomHost = () => {
     const [badges, setBadges] = useState([]);
     const [activeAwardingParticipantId, setActiveAwardingParticipantId] = useState(null);
 
+    const [showEndSessionModal, setShowEndSessionModal] = useState(false);
+    const [lessonStatus, setLessonStatus] = useState('in_progress');
+    const [progressPercent, setProgressPercent] = useState(50);
+    const [feedbackNotes, setFeedbackNotes] = useState('');
+    const [savingFeedback, setSavingFeedback] = useState(false);
+
     useEffect(() => {
         const fetchBadges = async () => {
             try {
@@ -243,15 +249,52 @@ const ClassroomHost = () => {
         }
     };
 
-    const handleEndSession = async () => {
-        if (!window.confirm('End this session? Students will no longer be able to interact.')) return;
+    const handleEndSessionClick = () => {
+        setShowEndSessionModal(true);
+    };
+
+    const handleSaveReportAndEnd = async () => {
+        setSavingFeedback(true);
         try {
+            // Deduplicate registered students
+            const registeredIds = new Set();
+            const uniqueStudents = [];
+            for (const p of sessionParticipants) {
+                if (p.student_id && !p.student_id.startsWith('guest-') && !registeredIds.has(p.student_id)) {
+                    registeredIds.add(p.student_id);
+                    uniqueStudents.push(p);
+                }
+            }
+
+            if (uniqueStudents.length > 0 && session?.lesson_id) {
+                const progressPromises = uniqueStudents.map(p => 
+                    api.lessonProgress.upsert({
+                        student_id: p.student_id,
+                        lesson_id: session.lesson_id,
+                        status: lessonStatus,
+                        progress_percent: parseInt(progressPercent, 10),
+                        feedback_notes: feedbackNotes,
+                        completed_at: lessonStatus === 'completed' ? new Date().toISOString() : null,
+                        updated_at: new Date().toISOString()
+                    })
+                );
+                await Promise.all(progressPromises);
+            }
+
             await api.sessions.end(sessionId);
+            await leaveRoom();
+            navigate('/teacher/dashboard');
         } catch (err) {
-            console.error('Error ending session:', err);
+            console.error('Failed to save session report:', err);
+            if (window.confirm('Failed to save progress report. End session anyway?')) {
+                await api.sessions.end(sessionId).catch(() => {});
+                await leaveRoom();
+                navigate('/teacher/dashboard');
+            }
+        } finally {
+            setSavingFeedback(false);
+            setShowEndSessionModal(false);
         }
-        await leaveRoom();
-        navigate('/teacher/dashboard');
     };
 
     const handleCopyCode = () => {
@@ -326,7 +369,7 @@ const ClassroomHost = () => {
 
                     {/* End Session */}
                     <button
-                        onClick={handleEndSession}
+                        onClick={handleEndSessionClick}
                         className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg font-semibold text-sm transition-colors"
                     >
                         <LogOut size={15} />
@@ -527,6 +570,96 @@ const ClassroomHost = () => {
                                     );
                                 })
                             )}
+                        </div>
+                    </div>
+                )}
+                {/* Post-Session Feedback & Progress Report Modal */}
+                {showEndSessionModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-950/80 backdrop-blur-md p-4 text-left">
+                        <div className="bg-gray-900 border border-gray-800 rounded-3xl p-8 max-w-lg w-full shadow-2xl relative space-y-6">
+                            <div>
+                                <h3 className="text-2xl font-black text-white tracking-tight">End Session & Progress Report</h3>
+                                <p className="text-gray-400 text-sm mt-1">Submit student performance notes and lesson coverage before closing the classroom.</p>
+                            </div>
+
+                            <div className="space-y-4">
+                                {/* Lesson Status */}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Lesson Status</label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setLessonStatus('in_progress'); setProgressPercent(50); }}
+                                            className={`py-3 px-4 rounded-xl font-bold text-sm border transition-all ${
+                                                lessonStatus === 'in_progress'
+                                                    ? 'bg-yellow-500/10 border-yellow-500 text-yellow-500'
+                                                    : 'bg-gray-950 border-gray-800 text-gray-400 hover:border-gray-700'
+                                            }`}
+                                        >
+                                            📖 Still In Progress
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setLessonStatus('completed'); setProgressPercent(100); }}
+                                            className={`py-3 px-4 rounded-xl font-bold text-sm border transition-all ${
+                                                lessonStatus === 'completed'
+                                                    ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500'
+                                                    : 'bg-gray-950 border-gray-800 text-gray-400 hover:border-gray-700'
+                                            }`}
+                                        >
+                                            ✅ Fully Completed
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Progress Percent Slider */}
+                                <div>
+                                    <div className="flex justify-between text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 font-semibold">
+                                        <span>Lesson Progress</span>
+                                        <span className="text-yellow-400 font-mono text-sm">{progressPercent}%</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="100"
+                                        step="10"
+                                        value={progressPercent}
+                                        onChange={(e) => setProgressPercent(e.target.value)}
+                                        className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+                                    />
+                                </div>
+
+                                {/* Feedback Notes */}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Tutor Feedback & Notes</label>
+                                    <textarea
+                                        value={feedbackNotes}
+                                        onChange={(e) => setFeedbackNotes(e.target.value)}
+                                        placeholder="Write a summary of what was covered, how the student performed, and areas of improvement..."
+                                        rows={4}
+                                        className="w-full p-4 bg-gray-950 border border-gray-805 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 rounded-xl outline-none font-medium text-white placeholder-gray-600 text-sm resize-none"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEndSessionModal(false)}
+                                    className="flex-1 py-3 bg-gray-800 hover:bg-gray-750 text-white font-bold rounded-xl transition-all text-sm"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSaveReportAndEnd}
+                                    disabled={savingFeedback}
+                                    className="flex-1 py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-950 font-black rounded-xl transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    {savingFeedback ? 'Saving...' : 'End & Save Report'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}

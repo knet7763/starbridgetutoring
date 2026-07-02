@@ -113,6 +113,7 @@ export const api = {
             .eq('student_id', studentId)
             .order('updated_at', { ascending: false })
             .limit(5),
+        upsert: (data) => supabase.from('lesson_progress').upsert(data),
     },
     bookings: {
         getUpcoming: (studentId, today) => supabase
