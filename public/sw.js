@@ -1,5 +1,5 @@
-const CACHE_NAME = 'starbridge-pwa-cache-v1';
-const API_CACHE_NAME = 'starbridge-api-cache-v1';
+const CACHE_NAME = 'starbridge-pwa-cache-v2';
+const API_CACHE_NAME = 'starbridge-api-cache-v2';
 
 const STATIC_ASSETS = [
   '/',
