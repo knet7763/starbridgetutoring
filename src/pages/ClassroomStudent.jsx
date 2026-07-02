@@ -77,6 +77,8 @@ const ClassroomStudent = () => {
         toggleScreenShare,
         isScreenSharing,
         localTracks,
+        isFallback,
+        switchToFallback,
     } = useVideoRoom();
 
     // Heartbeat sender — broadcasts student presence and status to teacher
@@ -505,7 +507,16 @@ const ClassroomStudent = () => {
 
             <div className="flex-1 flex overflow-hidden">
                 {/* Video Sidebar Component */}
-                {isJoined && <VideoSidebar room={room} participants={participants} />}
+                {(isJoined || isFallback) && (
+                    <VideoSidebar 
+                        room={room} 
+                        participants={participants} 
+                        isFallback={isFallback}
+                        roomName={session?.id ? generateRoomName(session.id) : (sessionId || '')}
+                        displayName={guestName}
+                        onSwitchFallback={switchToFallback}
+                    />
+                )}
 
                 {/* Main Interactive Area */}
                 <main className="flex-1 relative p-4 sm:p-6 flex flex-col min-w-0 bg-[#F3F4F6]">

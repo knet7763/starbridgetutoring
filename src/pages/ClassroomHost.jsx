@@ -116,6 +116,8 @@ const ClassroomHost = () => {
         toggleScreenShare,
         isScreenSharing,
         localTracks,
+        isFallback,
+        switchToFallback,
     } = useVideoRoom();
 
     useEffect(() => {
@@ -342,7 +344,16 @@ const ClassroomHost = () => {
                     )}
 
                     {/* Video Sidebar */}
-                    {(isJoined || isConnecting) && <VideoSidebar room={room} participants={participants} />}
+                    {(isJoined || isConnecting || isFallback) && (
+                        <VideoSidebar 
+                            room={room} 
+                            participants={participants} 
+                            isFallback={isFallback}
+                            roomName={session?.room_url || (session?.id ? generateRoomName(session.id) : '')}
+                            displayName="Teacher"
+                            onSwitchFallback={switchToFallback}
+                        />
+                    )}
 
                     {/* Main Stage */}
                     <div className="flex-1 relative bg-white flex flex-col">

@@ -121,10 +121,38 @@ const ParticipantTile = ({ participant, isLocal }) => {
     );
 };
 
-const VideoSidebar = ({ room, participants = [], className = "w-72 border-l border-gray-800" }) => {
-    if (!room) return null;
+const VideoSidebar = ({ 
+    room, 
+    participants = [], 
+    isFallback, 
+    roomName, 
+    displayName, 
+    onSwitchFallback, 
+    className = "w-72 border-l border-gray-800" 
+}) => {
+    if (!room && !isFallback) return null;
 
-    const localParticipant = room.localParticipant;
+    if (isFallback) {
+        return (
+            <div className={`${className} flex-shrink-0 bg-gray-950 flex flex-col h-full p-4 gap-4 z-50`}>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-xs uppercase tracking-[0.25em] text-red-500 font-black">Video Fallback</p>
+                        <p className="text-sm font-semibold text-gray-300">Jitsi Backup Server</p>
+                    </div>
+                </div>
+                <div className="flex-1 w-full rounded-2xl overflow-hidden border border-gray-850 shadow-2xl relative bg-gray-900">
+                    <iframe
+                        src={`https://meet.jit.si/starbridge-${roomName}#userInfo.displayName="${displayName}"&config.prejoinPageEnabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&interfaceConfig.TOOLBAR_BUTTONS=["microphone","camera","chat","tileview"]`}
+                        allow="camera; microphone; fullscreen; display-capture; autoplay"
+                        className="absolute inset-0 w-full h-full border-none rounded-2xl bg-gray-900"
+                    ></iframe>
+                </div>
+            </div>
+        );
+    }
+
+    const localParticipant = room?.localParticipant;
     const participantList = [...participants];
     const totalCount = (localParticipant ? 1 : 0) + participantList.length;
 
@@ -149,6 +177,14 @@ const VideoSidebar = ({ room, participants = [], className = "w-72 border-l bord
                     participant={participant}
                 />
             ))}
+
+            <button
+                onClick={onSwitchFallback}
+                className="w-full mt-4 py-2 bg-red-950/30 hover:bg-red-950/60 text-red-400 border border-red-900/40 rounded-xl text-xs font-bold transition-all text-center"
+                title="Switch to backup video server if you experience latency or connection issues"
+            >
+                ⚠️ Connection Issues? Switch to Backup Video
+            </button>
         </div>
     );
 };

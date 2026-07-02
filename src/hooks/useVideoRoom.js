@@ -8,6 +8,7 @@ import { connect, Room } from 'livekit-client';
  */
 export function useVideoRoom() {
     const roomRef = useRef(null);
+    const timeoutRef = useRef(null);
     const [room, setRoom] = useState(null);
     const [isJoined, setIsJoined] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
@@ -15,6 +16,7 @@ export function useVideoRoom() {
     const [isScreenSharing, setIsScreenSharing] = useState(false);
     const [participants, setParticipants] = useState([]);
     const [localTracks, setLocalTracks] = useState({ audio: true, video: true });
+    const [isFallback, setIsFallback] = useState(false);
 
     const joinRoom = useCallback(async (liveKitUrl, token, roomName, participantName) => {
         // Guard: don't join twice
@@ -25,6 +27,18 @@ export function useVideoRoom() {
 
         setIsConnecting(true);
         setError(null);
+        setIsFallback(false);
+
+        // Start connection timeout (8 seconds)
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+            if (!roomRef.current || roomRef.current.state !== 'connected') {
+                console.warn('[LiveKit] Connection timeout. Activating Jitsi fallback.');
+                setIsFallback(true);
+                setIsConnecting(false);
+                setError('LiveKit connection timed out. Switched to backup video server.');
+            }
+        }, 8000);
 
         try {
             if (!liveKitUrl || !token || !roomName) {
@@ -58,6 +72,10 @@ export function useVideoRoom() {
             // Set up event listeners
             newRoom.on('connected', () => {
                 console.log('[LiveKit] Connected to room');
+                if (timeoutRef.current) {
+                    clearTimeout(timeoutRef.current);
+                    timeoutRef.current = null;
+                }
                 setIsJoined(true);
                 setIsConnecting(false);
             });
@@ -89,6 +107,7 @@ export function useVideoRoom() {
                 console.error('[LiveKit] Room error:', error);
                 setError(error.message || 'An error occurred in the video call.');
                 setIsConnecting(false);
+                setIsFallback(true);
             });
 
             // Connect to room with token
@@ -120,13 +139,22 @@ export function useVideoRoom() {
             console.error('[useVideoRoom] Failed to join room:', err);
             setError(err.message || 'Failed to join the video room.');
             setIsConnecting(false);
+            setIsFallback(true);
             roomRef.current = null;
             setRoom(null);
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
         }
     }, []);
 
     const leaveRoom = useCallback(async () => {
         const r = roomRef.current;
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+        }
         if (!r) return;
 
         try {
@@ -199,9 +227,16 @@ export function useVideoRoom() {
         return roomRef.current?.localParticipant || null;
     }, []);
 
+    const switchToFallback = useCallback(() => {
+        setIsFallback(true);
+        setIsConnecting(false);
+        leaveRoom();
+    }, [leaveRoom]);
+
     // Cleanup on unmount
     useEffect(() => {
         return () => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
             if (roomRef.current) {
                 roomRef.current.disconnect();
                 roomRef.current = null;
@@ -223,6 +258,8 @@ export function useVideoRoom() {
         participants,
         localTracks,
         getLocalParticipant,
+        isFallback,
+        switchToFallback
     };
 }
 
