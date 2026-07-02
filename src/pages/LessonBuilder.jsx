@@ -166,7 +166,12 @@ const LessonBuilder = () => {
 
             // 1. Create or Update Lesson
             if (lessonId.startsWith('new-')) {
-                const { data, error } = await api.lessons.create({ title: lessonTitle, tutor_id: user.id });
+                const { data, error } = await api.lessons.create({
+                    title: lessonTitle,
+                    tutor_id: user.id,
+                    subject: 'General',
+                    difficulty: 'Beginner'
+                });
                 if (error) throw error;
                 realLessonId = data.id;
                 // Update URL without reload
