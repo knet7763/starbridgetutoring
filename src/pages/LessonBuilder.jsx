@@ -55,9 +55,17 @@ const LessonBuilder = () => {
         try {
             if (!user) return showToast('Please sign in to start a session', 'error');
 
+            let activeLessonId = lessonId;
+            if (lessonId.startsWith('new-')) {
+                showToast('Saving new lesson first...');
+                const savedId = await handleSave();
+                if (!savedId) return; // Save failed
+                activeLessonId = savedId;
+            }
+
             const code = Math.random().toString(36).substring(2, 8).toUpperCase();
             const payload = {
-                lesson_id: lessonId,
+                lesson_id: activeLessonId,
                 tutor_id: user.id,
                 code,
                 is_active: true,
@@ -151,7 +159,7 @@ const LessonBuilder = () => {
     };
 
     const handleSave = async () => {
-        if (!user) return;
+        if (!user) return null;
         setSaving(true);
         try {
             let realLessonId = lessonId;
@@ -200,10 +208,12 @@ const LessonBuilder = () => {
 
             showToast('Lesson saved!');
             fetchLessonData();
+            return realLessonId;
 
         } catch (error) {
             console.error('Detailed error saving lesson:', error);
             showToast(error.message || 'Failed to save lesson', 'error');
+            return null;
         } finally {
             setSaving(false);
         }
