@@ -82,7 +82,7 @@ const TeacherBookingsTab = ({ user }) => {
                     <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-2">
                             <User className="text-gray-400" size={20} />
-                            <span className="font-bold text-lg">{booking.students?.name || 'Student'}</span>
+                            <span className="font-bold text-lg">{booking.students?.full_name || 'Student'}</span>
                             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
                                 booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
                                 booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :

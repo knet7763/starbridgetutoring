@@ -60,20 +60,25 @@ const Board = ({
         });
     }, [sessionId, readOnly, tldrawUtils]);
 
+    const onChangeRef = useRef(onChange);
+    useEffect(() => {
+        onChangeRef.current = onChange;
+    }, [onChange]);
+
     // Optimize persistence: synchronize current board snapshot on unmount (slide change or end session)
     useEffect(() => {
         return () => {
             clearTimeout(timeoutRef.current);
-            if (!readOnly && editorRef.current && onChange && tldrawUtils.getSnapshot) {
+            if (!readOnly && editorRef.current && onChangeRef.current && tldrawUtils.getSnapshot) {
                 try {
                     const finalSnapshot = tldrawUtils.getSnapshot(editorRef.current.store);
-                    onChange(finalSnapshot);
+                    onChangeRef.current(finalSnapshot);
                 } catch (e) {
                     console.warn("Synchronous unmount save failed:", e);
                 }
             }
         };
-    }, [readOnly, onChange, tldrawUtils]);
+    }, [readOnly, tldrawUtils]);
 
     useEffect(() => {
         if (!sessionId) return;
@@ -142,15 +147,15 @@ const Board = ({
         if (!readOnly) {
             editor.store.listen(() => {
                 if (sessionId) broadcast();
-                if (onChange && tldrawUtils.getSnapshot) {
+                if (onChangeRef.current && tldrawUtils.getSnapshot) {
                     clearTimeout(timeoutRef.current);
                     timeoutRef.current = setTimeout(() => {
-                        onChange(tldrawUtils.getSnapshot(editor.store));
+                        onChangeRef.current(tldrawUtils.getSnapshot(editor.store));
                     }, 8000); // 8-second optimized background write cycle
                 }
             }, { scope: 'document', source: 'user' });
         }
-    }, [readOnly, sessionId, broadcast, initialSnapshot, backgroundImage, onChange]);
+    }, [readOnly, sessionId, broadcast, initialSnapshot, backgroundImage]);
 
     // AI Analysis handler
     const handleAIAnalyze = async () => {
@@ -197,6 +202,7 @@ const Board = ({
                     onMount={handleMount}
                     inferDarkMode
                     hideUi={readOnly}
+                    licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
                 />
             )}
 

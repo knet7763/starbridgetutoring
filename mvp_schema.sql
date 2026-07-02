@@ -4,12 +4,14 @@
 -- 0. Tutors Table (Required for Lessons if not already present)
 CREATE TABLE IF NOT EXISTS tutors (
     id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
-    full_name TEXT,
-    email TEXT,
+    name TEXT,
+    subject TEXT,
     bio TEXT,
-    hourly_rate DECIMAL(10, 2),
-    subjects TEXT[],
-    created_at TIMESTAMP DEFAULT NOW()
+    qualification TEXT,
+    image_url TEXT,
+    languages TEXT[],
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- 1. Lessons Table (Created by Teachers/Tutors)

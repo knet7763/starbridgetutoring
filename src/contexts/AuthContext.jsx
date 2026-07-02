@@ -25,6 +25,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const loadStudentProfile = async (userId, { markMissing = false } = {}) => {
+        console.log('[AuthContext] loadStudentProfile starting for userId:', userId);
         try {
             const { data, error } = await supabase
                 .from('student_profiles')
@@ -35,16 +36,18 @@ export const AuthProvider = ({ children }) => {
             if (error) throw error;
             
             if (data) {
+                console.log('[AuthContext] loadStudentProfile found student profile:', data);
                 setStudent(data);
                 setProfileMissing(false);
             } else {
+                console.log('[AuthContext] loadStudentProfile: no profile found');
                 setStudent(null);
                 setProfileMissing(markMissing);
             }
 
             return data;
         } catch (error) {
-            console.error('Error loading student profile:', error);
+            console.error('[AuthContext] Error loading student profile:', error);
             setStudent(null);
             setProfileMissing(markMissing);
             return null;
@@ -58,7 +61,9 @@ export const AuthProvider = ({ children }) => {
         let mounted = true;
 
         const applySession = async (session) => {
+            console.log('[AuthContext] applySession starting, user:', session?.user?.email);
             if (!session?.user) {
+                console.log('[AuthContext] applySession: no session user');
                 setUser(null);
                 setStudent(null);
                 setRole(null);
@@ -68,10 +73,12 @@ export const AuthProvider = ({ children }) => {
 
             const trustedRole = getRoleFromUser(session.user);
             const expectedRole = localStorage.getItem('sb_role');
+            console.log('[AuthContext] trustedRole:', trustedRole, 'expectedRole:', expectedRole);
 
             setUser(session.user);
 
             if (trustedRole) {
+                console.log('[AuthContext] applySession: trustedRole matched:', trustedRole);
                 setRole(trustedRole);
                 setStudent(null);
                 setProfileMissing(false);
@@ -82,18 +89,22 @@ export const AuthProvider = ({ children }) => {
                 markMissing: expectedRole === 'student',
             });
 
+            console.log('[AuthContext] applySession: setting role based on studentProfile:', studentProfile ? 'student' : null);
             setRole(studentProfile ? 'student' : null);
         };
 
         const initializeAuth = async () => {
+            console.log('[AuthContext] initializeAuth starting...');
             try {
                 const { data: { session } } = await supabase.auth.getSession();
+                console.log('[AuthContext] getSession returned session user:', session?.user?.email);
                 if (!mounted) return;
 
                 await applySession(session);
             } catch (error) {
-                console.error('Auth initialization error:', error);
+                console.error('[AuthContext] Auth initialization error:', error);
             } finally {
+                console.log('[AuthContext] initializeAuth finally block, setting loading=false');
                 if (mounted) setLoading(false);
             }
         };
@@ -101,6 +112,7 @@ export const AuthProvider = ({ children }) => {
         initializeAuth();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('[AuthContext] onAuthStateChange event:', event, 'user:', session?.user?.email);
             if (!mounted) return;
 
             await applySession(session);
@@ -108,6 +120,7 @@ export const AuthProvider = ({ children }) => {
             if (!session?.user && event === 'SIGNED_OUT') {
                 localStorage.removeItem('sb_role');
             }
+            console.log('[AuthContext] onAuthStateChange setting loading=false');
             if (mounted) setLoading(false);
         });
 

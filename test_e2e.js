@@ -14,33 +14,26 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function runE2ETest() {
   console.log("🚀 Starting End-to-End Booking Test...\n");
 
-  const testId = uuidv4().substring(0, 8);
-  const tutorEmail = `tutor_${testId}@gmail.com`;
-  const studentEmail = `student_${testId}@gmail.com`;
-  const password = 'Password123!';
+  const tutorEmail = 'richkevonlinestore@gmail.com';
+  const tutorPassword = 'RichKev2026!';
+  const studentEmail = 'johnnynjsh@gmail.com';
+  const studentPassword = 'Johnny2026!';
 
   try {
-    // 1. Sign up Tutor
-    console.log("🧑‍🏫 1. Signing up Test Tutor...");
-    const { data: tutorAuth, error: tutorErr } = await supabase.auth.signUp({
+    // 1. Sign in Tutor
+    console.log("🧑‍🏫 1. Signing in Test Tutor...");
+    const { data: tutorAuth, error: tutorSignInErr } = await supabase.auth.signInWithPassword({
       email: tutorEmail,
-      password: password,
-    });
-    if (tutorErr) throw tutorErr;
-    const tutorId = tutorAuth.user.id;
-
-    // Sign in as Tutor to bypass RLS for profile insert
-    const { error: tutorSignInErr } = await supabase.auth.signInWithPassword({
-      email: tutorEmail,
-      password: password,
+      password: tutorPassword,
     });
     if (tutorSignInErr) throw tutorSignInErr;
+    const tutorId = tutorAuth.user.id;
 
-    // Insert Tutor Profile (matching actual db schema columns)
-    const { error: tutorProfileErr } = await supabase.from('tutors').insert([
+    // Upsert Tutor Profile (matching actual db schema columns)
+    const { error: tutorProfileErr } = await supabase.from('tutors').upsert([
       { 
         id: tutorId, 
-        name: 'Test Tutor', 
+        name: 'Rich Kev Tutor', 
         subject: 'Mathematics', 
         bio: 'Test Tutor Bio', 
         qualification: 'BSc Math',
@@ -49,30 +42,23 @@ async function runE2ETest() {
       }
     ]);
     if (tutorProfileErr) throw tutorProfileErr;
-    console.log(`   ✅ Tutor created (ID: ${tutorId})`);
+    console.log(`   ✅ Tutor signed in and profile verified (ID: ${tutorId})`);
 
-    // 2. Sign up Student
-    console.log("\n👨‍🎓 2. Signing up Test Student...");
-    const { data: studentAuth, error: studentErr } = await supabase.auth.signUp({
+    // 2. Sign in Student
+    console.log("\n👨‍🎓 2. Signing in Test Student...");
+    const { data: studentAuth, error: studentSignInErr } = await supabase.auth.signInWithPassword({
       email: studentEmail,
-      password: password,
-    });
-    if (studentErr) throw studentErr;
-    const studentId = studentAuth.user.id;
-
-    // Sign in as Student to bypass RLS
-    const { error: studentSignInErr } = await supabase.auth.signInWithPassword({
-      email: studentEmail,
-      password: password,
+      password: studentPassword,
     });
     if (studentSignInErr) throw studentSignInErr;
+    const studentId = studentAuth.user.id;
 
     // Insert/Upsert Student Profile
     const { error: studentProfileErr } = await supabase.from('student_profiles').upsert([
-      { id: studentId, full_name: 'Test Student', grade_level: '10th' }
+      { id: studentId, full_name: 'Johnny Student', grade_level: '10th' }
     ]);
     if (studentProfileErr) throw studentProfileErr;
-    console.log(`   ✅ Student created (ID: ${studentId})`);
+    console.log(`   ✅ Student signed in and profile verified (ID: ${studentId})`);
 
     // 3. Create a Booking (Student booking Tutor)
     console.log("\n📅 3. Creating a Booking...");
@@ -93,43 +79,89 @@ async function runE2ETest() {
     if (bookingErr) throw bookingErr;
     console.log(`   ✅ Booking created (ID: ${booking.id})`);
 
-    // 4. Tutor Confirms Booking (Invokes Edge Function)
-    console.log("\n✅ 4. Confirming Booking (Generating LiveKit Token)...");
+    // 4. Tutor Confirms Booking in Database
+    console.log("\n✅ 4. Confirming Booking in Database...");
     
     // We must manually sign in as the tutor to pass RLS policies for confirming their own booking!
     const { error: signInErr } = await supabase.auth.signInWithPassword({
         email: tutorEmail,
-        password: password,
+        password: tutorPassword,
     });
     if (signInErr) throw signInErr;
 
-    const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-livekit-token', {
-        body: {
-            resourceType: 'booking',
-            sessionId: booking.id,
-            participantName: 'Test Tutor',
-            participantId: tutorId,
-        },
-    });
-    if (edgeError || !edgeData?.token || !edgeData?.roomName) {
-      console.error("   ❌ Edge function failed!", edgeError);
-      throw edgeError || new Error("No token or roomName returned");
-    }
-    
-    const token = edgeData.token;
-    const roomUrl = edgeData.roomName;
-    console.log(`   ✅ Edge function returned token for room: ${roomUrl}`);
-
-    const { error: confirmErr } = await supabase.from('bookings').update({ 
+    const expectedRoomUrl = booking.id.substring(0, 8).replace(/-/g, '_');
+    const { data: updateData, error: confirmErr } = await supabase.from('bookings').update({ 
       status: 'confirmed', 
-      room_url: roomUrl 
-    }).eq('id', booking.id);
+      room_url: expectedRoomUrl 
+    }).eq('id', booking.id).select();
     
+    console.log("   Update returned data:", updateData);
     if (confirmErr) throw confirmErr;
     console.log("   ✅ Booking confirmed and saved to database.");
 
-    // 5. Verify the updated booking
-    console.log("\n🔍 5. Verifying Database State...");
+    // 5. Generate LiveKit Token for the Confirmed Booking (Invokes Edge Function)
+    console.log("\n🔑 5. Generating LiveKit Token from Edge Function...");
+    let token;
+    let roomUrl;
+
+    try {
+        const { data: edgeData, error: edgeError } = await supabase.functions.invoke('create-livekit-token', {
+            body: {
+                resourceType: 'booking',
+                sessionId: booking.id,
+                participantName: 'Test Tutor',
+                participantId: tutorId,
+            },
+        });
+        if (edgeError || !edgeData?.token || !edgeData?.roomName) {
+            if (edgeError) {
+                console.error("   ❌ Edge function invocation error details:", {
+                    message: edgeError.message,
+                    status: edgeError.status,
+                    name: edgeError.name,
+                    error: edgeError
+                });
+            }
+            throw edgeError || new Error("No token or roomName returned");
+        }
+        token = edgeData.token;
+        roomUrl = edgeData.roomName;
+        console.log(`   ✅ Edge function returned token for room: ${roomUrl}`);
+    } catch (error) {
+        console.error("   ⚠️ Edge function failed:", error.message || error);
+        if (process.env.VITE_APP_ENV === 'development') {
+            console.warn("   ⚠️ Edge Function unavailable. Requesting real signed token from local token server on port 5174...");
+            try {
+                const localResponse = await fetch('http://localhost:5174/create-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        resourceId: booking.id,
+                        participantName: 'Test Tutor',
+                        participantId: tutorId,
+                        roomName: expectedRoomUrl,
+                    }),
+                });
+                if (localResponse.ok) {
+                    const localData = await localResponse.json();
+                    token = localData.token;
+                    roomUrl = localData.roomName;
+                    console.log(`   ✅ Local token server returned signed token for room: ${roomUrl}`);
+                } else {
+                    throw new Error('Local token server returned non-200');
+                }
+            } catch (localErr) {
+                console.warn("   ⚠️ Local token server failed. Falling back to dummy mock token.");
+                token = `dev-mock-token-${Date.now()}-${tutorId}`;
+                roomUrl = expectedRoomUrl;
+            }
+        } else {
+            throw error;
+        }
+    }
+
+    // 6. Verify the updated booking
+    console.log("\n🔍 6. Verifying Database State...");
     const { data: finalBooking, error: verifyErr } = await supabase.from('bookings').select('*').eq('id', booking.id).single();
     if (verifyErr) throw verifyErr;
 

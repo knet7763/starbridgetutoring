@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Plus, Save, Image as ImageIcon, Type, MessageSquare, HelpCircle, BarChart2, Youtube, CheckCircle, AlertCircle, X, Book, Video } from 'lucide-react';
+import { ChevronLeft, Plus, Save, Image as ImageIcon, Type, MessageSquare, HelpCircle, BarChart2, Youtube, CheckCircle, AlertCircle, X, Book, Video, Sparkles, Loader2 } from 'lucide-react';
 
 import Board from '../components/Whiteboard/Board';
 import { api } from '../services/api';
@@ -37,6 +37,11 @@ const LessonBuilder = () => {
     const [slides, setSlides] = useState([]);
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
     const [toast, setToast] = useState(null);
+    const [showAIModal, setShowAIModal] = useState(false);
+    const [aiTopic, setAiTopic] = useState('');
+    const [aiGradeLevel, setAiGradeLevel] = useState('Grade 4-6');
+    const [aiSlideCount, setAiSlideCount] = useState(5);
+    const [generatingAI, setGeneratingAI] = useState(false);
 
     const showToast = useCallback((message, type = 'success') => {
         setToast({ message, type });
@@ -107,6 +112,39 @@ const LessonBuilder = () => {
             console.error('Error loading lesson:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleAIGenerate = async (mode = 'overwrite') => {
+        if (!aiTopic.trim()) return showToast('Please enter a topic', 'error');
+        setGeneratingAI(true);
+        try {
+            const { data, error } = await api.ai.generateLessonPlan(aiTopic, aiGradeLevel, aiSlideCount);
+            if (error) throw error;
+
+            if (data?.slides && data.slides.length > 0) {
+                if (mode === 'overwrite') {
+                    setSlides(data.slides);
+                    setCurrentSlideIndex(0);
+                    if (lessonTitle === 'Untitled Lesson') {
+                        setLessonTitle(data.title);
+                    }
+                    showToast(`AI created ${data.slides.length} slides! Click 'Save' to commit.`);
+                } else {
+                    setSlides(prev => [...prev, ...data.slides]);
+                    setCurrentSlideIndex(slides.length);
+                    showToast(`Appended ${data.slides.length} AI slides to your lesson.`);
+                }
+                setShowAIModal(false);
+                setAiTopic('');
+            } else {
+                showToast('No slides were generated.', 'error');
+            }
+        } catch (err) {
+            console.error('AI generation failed:', err);
+            showToast(err.message || 'AI generation failed', 'error');
+        } finally {
+            setGeneratingAI(false);
         }
     };
 
@@ -239,6 +277,14 @@ const LessonBuilder = () => {
                         <Video size={18} />
                         Launch 1on1 Video
                     </button>
+                    <button
+                        onClick={() => setShowAIModal(true)}
+                        className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-md animate-pulse-subtle"
+                        style={{ borderBottom: '3px solid #4338CA' }}
+                    >
+                        <Sparkles size={18} className="animate-pulse" />
+                        AI Copilot
+                    </button>
                     <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">
                         Preview
                     </button>
@@ -370,6 +416,93 @@ const LessonBuilder = () => {
                     </div>
                 </div>
             </div>
+
+            {/* AI Slide Generator Modal */}
+            {showAIModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/60 backdrop-blur-md">
+                    <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-md w-full border border-gray-100 flex flex-col relative mx-4">
+                        <button
+                            onClick={() => setShowAIModal(false)}
+                            className="absolute top-6 right-6 p-1.5 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+                        >
+                            <X size={18} />
+                        </button>
+
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2.5 bg-purple-100 rounded-2xl text-purple-600">
+                                <Sparkles size={24} className="animate-pulse" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">AI Lesson Planner</h3>
+                                <p className="text-xs text-gray-500 font-medium mt-0.5">Generate customized interactive slide decks instantly</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-5">
+                            <div>
+                                <label className="block text-xs font-black uppercase tracking-wider text-gray-500 mb-2">Topic or Concept</label>
+                                <input
+                                    type="text"
+                                    value={aiTopic}
+                                    onChange={(e) => setAiTopic(e.target.value)}
+                                    placeholder="e.g. Intro to fractions, Water Cycle, Photosynthesis"
+                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-purple-500 text-sm placeholder-gray-400"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-black uppercase tracking-wider text-gray-500 mb-2">Grade Level</label>
+                                    <select
+                                        value={aiGradeLevel}
+                                        onChange={(e) => setAiGradeLevel(e.target.value)}
+                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-purple-500 text-sm text-gray-700"
+                                    >
+                                        <option value="Grade 1-3">Grade 1-3</option>
+                                        <option value="Grade 4-6">Grade 4-6</option>
+                                        <option value="Grade 7-9">Grade 7-9</option>
+                                        <option value="Grade 10-12">Grade 10-12</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-black uppercase tracking-wider text-gray-500 mb-2">Slides Count</label>
+                                    <input
+                                        type="number"
+                                        min="2"
+                                        max="5"
+                                        value={aiSlideCount}
+                                        onChange={(e) => setAiSlideCount(Math.max(2, Math.min(5, parseInt(e.target.value, 10) || 5)))}
+                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-purple-500 text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="pt-4 border-t border-gray-100 flex gap-3">
+                                <button
+                                    onClick={() => handleAIGenerate('overwrite')}
+                                    disabled={generatingAI}
+                                    className="flex-1 px-4 py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {generatingAI ? (
+                                        <>
+                                            <Loader2 size={16} className="animate-spin" /> Generating...
+                                        </>
+                                    ) : (
+                                        'Create & Overwrite'
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => handleAIGenerate('append')}
+                                    disabled={generatingAI}
+                                    className="flex-1 px-4 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center justify-center"
+                                >
+                                    Append Slides
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

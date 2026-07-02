@@ -11,12 +11,14 @@
 -- 0. Tutors Table (Required for Lessons if not already present)
 CREATE TABLE IF NOT EXISTS tutors (
     id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
-    full_name TEXT,
-    email TEXT,
+    name TEXT,
+    subject TEXT,
     bio TEXT,
-    hourly_rate DECIMAL(10, 2),
-    subjects TEXT[],
-    created_at TIMESTAMP DEFAULT NOW()
+    qualification TEXT,
+    image_url TEXT,
+    languages TEXT[],
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- 1. Lessons Table (Created by Teachers/Tutors)
@@ -140,6 +142,8 @@ BEGIN
     -- Active Sessions
     BEGIN DROP POLICY IF EXISTS "Anyone can view active sessions by code" ON active_sessions; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Tutors manage their sessions" ON active_sessions; EXCEPTION WHEN OTHERS THEN END;
+    BEGIN DROP POLICY IF EXISTS "Tutors can view their own sessions" ON active_sessions; EXCEPTION WHEN OTHERS THEN END;
+    BEGIN DROP POLICY IF EXISTS "Admins can view all active sessions" ON active_sessions; EXCEPTION WHEN OTHERS THEN END;
     
     -- Participants
     BEGIN DROP POLICY IF EXISTS "Anyone can join a session" ON session_participants; EXCEPTION WHEN OTHERS THEN END;
@@ -164,7 +168,13 @@ CREATE POLICY "Tutors manage their slides" ON slides
 -- Active Sessions: Public read (for joining), Tutor write
 ALTER TABLE active_sessions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can view active sessions by code" ON active_sessions
-    FOR SELECT USING (true); -- Needed for students to find session by code
+    FOR SELECT USING (is_active = true);
+
+CREATE POLICY "Tutors can view their own sessions" ON active_sessions
+    FOR SELECT USING (auth.uid() = tutor_id);
+
+CREATE POLICY "Admins can view all active sessions" ON active_sessions
+    FOR SELECT USING (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
 CREATE POLICY "Tutors manage their sessions" ON active_sessions
     USING (auth.uid() = tutor_id)
@@ -176,7 +186,17 @@ CREATE POLICY "Anyone can join a session" ON session_participants
     FOR INSERT WITH CHECK (true);
 
 CREATE POLICY "View participants in same session" ON session_participants
-    FOR SELECT USING (true);
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM active_sessions 
+            WHERE active_sessions.id = session_participants.session_id 
+              AND (active_sessions.tutor_id = auth.uid() OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
+        ) OR EXISTS (
+            SELECT 1 FROM session_participants AS sp 
+            WHERE sp.session_id = session_participants.session_id 
+              AND sp.student_id = auth.uid()
+        )
+    );
 
 -- Responses: Public insert, Secure view
 ALTER TABLE responses ENABLE ROW LEVEL SECURITY;
@@ -284,11 +304,15 @@ DO $$
 BEGIN
     -- Student profiles
     BEGIN DROP POLICY IF EXISTS "Anyone can view student profiles" ON student_profiles; EXCEPTION WHEN OTHERS THEN END;
+    BEGIN DROP POLICY IF EXISTS "Students can view own profile" ON student_profiles; EXCEPTION WHEN OTHERS THEN END;
+    BEGIN DROP POLICY IF EXISTS "Tutors can view student profiles of their bookings" ON student_profiles; EXCEPTION WHEN OTHERS THEN END;
+    BEGIN DROP POLICY IF EXISTS "Admins can view all student profiles" ON student_profiles; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Users can insert their own profile" ON student_profiles; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Users can update their own profile" ON student_profiles; EXCEPTION WHEN OTHERS THEN END;
     
     -- Enrollments
     BEGIN DROP POLICY IF EXISTS "Students can view their enrollments" ON enrollments; EXCEPTION WHEN OTHERS THEN END;
+    BEGIN DROP POLICY IF EXISTS "Tutors can view their enrollments" ON enrollments; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Admins can manage all enrollments" ON enrollments; EXCEPTION WHEN OTHERS THEN END;
     
     -- Lesson progress
@@ -301,19 +325,37 @@ BEGIN
     
     -- Bookings
     BEGIN DROP POLICY IF EXISTS "Students can view their bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
+    BEGIN DROP POLICY IF EXISTS "Students can view own active bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
+    BEGIN DROP POLICY IF EXISTS "Tutors can view their bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
+    BEGIN DROP POLICY IF EXISTS "Tutors can view own active bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Students can create bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Students can update their bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
-    BEGIN DROP POLICY IF EXISTS "Tutors can view their bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Tutors can update their bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Admins can manage all bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
 END $$;
 
 
--- Student profiles: Users can read all profiles, but only update their own
+-- Student profiles: Users can read own profile, tutors/admins can read relevant profiles
 ALTER TABLE student_profiles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can view student profiles" ON student_profiles
-    FOR SELECT USING (true);
+CREATE POLICY "Students can view own profile" ON student_profiles
+    FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Tutors can view student profiles of their bookings" ON student_profiles
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM bookings 
+            WHERE bookings.student_id = student_profiles.id 
+              AND bookings.tutor_id = auth.uid()
+        ) OR EXISTS (
+            SELECT 1 FROM enrollments 
+            WHERE enrollments.student_id = student_profiles.id 
+              AND enrollments.tutor_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Admins can view all student profiles" ON student_profiles
+    FOR SELECT USING (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
 CREATE POLICY "Users can insert their own profile" ON student_profiles
     FOR INSERT WITH CHECK (auth.uid() = id);
@@ -321,11 +363,14 @@ CREATE POLICY "Users can insert their own profile" ON student_profiles
 CREATE POLICY "Users can update their own profile" ON student_profiles
     FOR UPDATE USING (auth.uid() = id);
 
--- Enrollments: Students can view their own, admins can manage all
+-- Enrollments: Students can view their own, tutors can view theirs, admins can manage all
 ALTER TABLE enrollments ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Students can view their enrollments" ON enrollments
     FOR SELECT USING (auth.uid() = student_id);
+
+CREATE POLICY "Tutors can view their enrollments" ON enrollments
+    FOR SELECT USING (auth.uid() = tutor_id);
 
 CREATE POLICY "Admins can manage all enrollments" ON enrollments
     FOR ALL USING (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
@@ -348,20 +393,20 @@ CREATE POLICY "Anyone can view tutor availability" ON tutor_availability
 CREATE POLICY "Admins can manage availability" ON tutor_availability
     FOR ALL USING (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
--- Bookings: Students can view/create their own, tutors can view theirs
+-- Bookings: Students can view/create their own active bookings, tutors can view their active bookings
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Students can view their bookings" ON bookings
-    FOR SELECT USING (auth.uid() = student_id);
+CREATE POLICY "Students can view own active bookings" ON bookings
+    FOR SELECT USING (auth.uid() = student_id AND deleted_at IS NULL);
+
+CREATE POLICY "Tutors can view own active bookings" ON bookings
+    FOR SELECT USING (auth.uid() = tutor_id AND deleted_at IS NULL);
 
 CREATE POLICY "Students can create bookings" ON bookings
     FOR INSERT WITH CHECK (auth.uid() = student_id);
 
 CREATE POLICY "Students can update their bookings" ON bookings
     FOR UPDATE USING (auth.uid() = student_id);
-
-CREATE POLICY "Tutors can view their bookings" ON bookings
-    FOR SELECT USING (auth.uid() = tutor_id);
 
 CREATE POLICY "Tutors can update their bookings" ON bookings
     FOR UPDATE USING (auth.uid() = tutor_id);

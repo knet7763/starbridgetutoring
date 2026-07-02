@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.3";
-import { AccessToken } from "https://cdn.jsdelivr.net/npm/livekit-server-sdk@0.5.0/dist/room_service.js";
+import { AccessToken } from "npm:livekit-server-sdk@0.5.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -159,13 +159,7 @@ serve(async (req) => {
     }
 
     const tokenIdentity = authUser?.id || participantId;
-    const at = new AccessToken(apiKey, apiSecret);
-    at.addGrant({
-      room: roomName,
-      roomJoin: true,
-      canPublish: true,
-      canPublishData: true,
-      canSubscribe: true,
+    const at = new AccessToken(apiKey, apiSecret, {
       identity: tokenIdentity,
       name: participantName,
       metadata: JSON.stringify({
@@ -173,6 +167,13 @@ serve(async (req) => {
         resourceType,
         joinedAt: new Date().toISOString(),
       }),
+    });
+    at.addGrant({
+      room: roomName,
+      roomJoin: true,
+      canPublish: true,
+      canPublishData: true,
+      canSubscribe: true,
     });
 
     const token = at.toJwt();

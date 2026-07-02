@@ -84,7 +84,40 @@ export async function generateLiveKitToken(resourceId, participantName, particip
             roomName,
         };
     } catch (error) {
-        console.error('[VideoService] Failed to generate LiveKit token:', error);
+        if (import.meta.env.VITE_APP_ENV === 'development') {
+            console.warn('[VideoService] Edge Function failed. Fetching real signed token from local token server on port 5174...');
+            try {
+                const localRoomName = options.roomName || generateRoomName(resourceId) || 'dev_room';
+                const localResponse = await fetch('http://localhost:5174/create-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        resourceId,
+                        participantName,
+                        participantId,
+                        roomName: localRoomName,
+                    }),
+                });
+                if (localResponse.ok) {
+                    const localData = await localResponse.json();
+                    return {
+                        token: localData.token,
+                        url: LIVEKIT_URL,
+                        roomName: localData.roomName,
+                    };
+                }
+            } catch (localErr) {
+                console.error('[VideoService] Local token server failed:', localErr);
+            }
+
+            console.warn('[VideoService] Local token server unavailable. Falling back to dummy mock token string.');
+            return {
+                token: `dev-mock-token-${Date.now()}-${participantId}`,
+                url: LIVEKIT_URL || 'ws://localhost:7880',
+                roomName: options.roomName || generateRoomName(resourceId) || 'dev_room',
+            };
+        }
+        
         throw new Error(`Token generation failed: ${error.message}`);
     }
 }

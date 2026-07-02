@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
+import { TutorAvatar } from '../assets/avatar';
 
 const Tutors = () => {
     const [tutors, setTutors] = useState([]);
@@ -64,7 +65,11 @@ const Tutors = () => {
                         {tutors.map((tutor) => (
                             <div key={tutor.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow flex flex-col">
                                 <div className="h-48 w-full overflow-hidden">
-                                    <img className="w-full h-full object-cover" src={tutor.image_url || 'https://via.placeholder.com/256'} alt={tutor.name} />
+                                    {tutor.image_url ? (
+                                        <img className="w-full h-full object-cover" src={tutor.image_url} alt={tutor.name} />
+                                    ) : (
+                                        <TutorAvatar name={tutor.name} className="w-full h-full flex items-center justify-center text-5xl font-black" />
+                                    )}
                                 </div>
                                 <div className="p-6 flex flex-col flex-grow">
                                     <h3 className="text-xl font-bold text-gray-900">{tutor.name}</h3>

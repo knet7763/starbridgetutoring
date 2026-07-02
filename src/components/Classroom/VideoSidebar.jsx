@@ -30,7 +30,6 @@ export const TrackRenderer = ({ track, isVideo, isLocal }) => {
             <audio
                 ref={ref}
                 autoPlay
-                playsInline
                 className="hidden"
             />
         );

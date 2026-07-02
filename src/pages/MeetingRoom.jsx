@@ -14,9 +14,12 @@ import {
     Video,
     VideoOff,
     User,
+    MessageSquare,
 } from 'lucide-react';
+import { DataPacket_Kind } from 'livekit-client';
 import Board from '../components/Whiteboard/Board';
 import VideoSidebar, { TrackRenderer } from '../components/Classroom/VideoSidebar';
+import ChatPanel from '../components/Classroom/ChatPanel';
 import { useVideoRoom } from '../hooks/useVideoRoom';
 import { generateLiveKitToken, generateRoomName } from '../services/videoService';
 
@@ -100,6 +103,8 @@ const MeetingRoom = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeTool, setActiveTool] = useState('video');
+    const [showChat, setShowChat] = useState(false);
+    const [messages, setMessages] = useState([]);
     const joinedRef = useRef(false);
 
     const {
@@ -200,6 +205,72 @@ const MeetingRoom = () => {
         };
     }, [leaveRoom]);
 
+    // Realtime chat message listener (LiveKit Data Channel)
+    useEffect(() => {
+        if (!room) return;
+
+        const handleData = (payload, participant) => {
+            try {
+                const decoder = new TextDecoder();
+                const text = decoder.decode(payload);
+                const data = JSON.parse(text);
+
+                if (data.type === 'chat') {
+                    setMessages(prev => [...prev, {
+                        id: data.id || Math.random().toString(36).substring(2, 9),
+                        senderId: participant?.identity || 'unknown',
+                        senderName: data.senderName || 'Participant',
+                        text: data.text,
+                        timestamp: data.timestamp || Date.now(),
+                        isLocal: false,
+                    }]);
+                }
+            } catch (err) {
+                console.error('Failed to parse received data packet:', err);
+            }
+        };
+
+        room.on('dataReceived', handleData);
+        return () => {
+            room.off('dataReceived', handleData);
+        };
+    }, [room]);
+
+    const handleSendMessage = async (text) => {
+        if (!text.trim()) return;
+
+        const messageData = {
+            id: Math.random().toString(36).substring(2, 9),
+            type: 'chat',
+            senderName: displayName,
+            text: text,
+            timestamp: Date.now(),
+        };
+
+        // Append locally immediately for smooth instant feedback
+        setMessages(prev => [...prev, {
+            id: messageData.id,
+            senderId: participantId,
+            senderName: displayName,
+            text: text,
+            timestamp: messageData.timestamp,
+            isLocal: true,
+        }]);
+
+        // Broadcast to other participants asynchronously if connected
+        if (room && room.state === 'connected') {
+            try {
+                const encoder = new TextEncoder();
+                const payload = encoder.encode(JSON.stringify(messageData));
+                await room.localParticipant.publishData(payload, DataPacket_Kind.RELIABLE);
+            } catch (err) {
+                console.error('[MeetingRoom] Failed to publish chat message:', err);
+            }
+        } else {
+            console.warn('[MeetingRoom] LiveKit room is not connected. Broadcast skipped.');
+        }
+    };
+
     const handleLeave = async () => {
         if (window.confirm('Leave this session?')) {
             await leaveRoom();
@@ -282,6 +353,14 @@ const MeetingRoom = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setShowChat(!showChat)}
+                        className={`p-2.5 rounded-xl border transition-all ${showChat ? 'bg-primary text-gray-955 border-primary shadow-lg hover:bg-yellow-500' : 'bg-white/5 hover:bg-white/10 text-gray-400 border-white/5'}`}
+                        title="Chat"
+                    >
+                        <MessageSquare size={18} />
+                    </button>
+
                     <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 px-3 py-1.5 rounded-xl">
                         <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
                         <span className="text-green-400 text-xs font-black uppercase tracking-widest">
@@ -384,6 +463,15 @@ const MeetingRoom = () => {
                         className="w-full h-full"
                     />
                 </div>
+
+                {/* Chat Panel */}
+                {showChat && (
+                    <ChatPanel
+                        messages={messages}
+                        onSendMessage={handleSendMessage}
+                        onClose={() => setShowChat(false)}
+                    />
+                )}
             </div>
         </div>
     );
