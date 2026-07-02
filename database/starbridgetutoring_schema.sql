@@ -156,6 +156,24 @@ CREATE TABLE IF NOT EXISTS bookings (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- 13. Badges
+CREATE TABLE IF NOT EXISTS badges (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    description TEXT,
+    icon_url TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 14. Student Badges
+CREATE TABLE IF NOT EXISTS student_badges (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES student_profiles(id) ON DELETE CASCADE,
+    badge_id UUID REFERENCES badges(id) ON DELETE CASCADE,
+    awarded_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(student_id, badge_id)
+);
+
 -- Performance indexes
 CREATE INDEX IF NOT EXISTS idx_enrollments_student       ON enrollments(student_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_tutor         ON enrollments(tutor_id);
@@ -165,6 +183,8 @@ CREATE INDEX IF NOT EXISTS idx_tutor_availability_tutor  ON tutor_availability(t
 CREATE INDEX IF NOT EXISTS idx_bookings_student          ON bookings(student_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_tutor            ON bookings(tutor_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_date             ON bookings(booking_date);
+CREATE INDEX IF NOT EXISTS idx_student_badges_student    ON student_badges(student_id);
+CREATE INDEX IF NOT EXISTS idx_student_badges_badge      ON student_badges(badge_id);
 
 
 -- =========================================================================
@@ -250,6 +270,12 @@ BEGIN
     BEGIN DROP POLICY IF EXISTS "Students can update their bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Tutors can update their bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
     BEGIN DROP POLICY IF EXISTS "Admins can manage all bookings" ON bookings; EXCEPTION WHEN OTHERS THEN END;
+
+    BEGIN DROP POLICY IF EXISTS "Anyone can view badges" ON badges; EXCEPTION WHEN OTHERS THEN END;
+    BEGIN DROP POLICY IF EXISTS "Admins can manage badges" ON badges; EXCEPTION WHEN OTHERS THEN END;
+    
+    BEGIN DROP POLICY IF EXISTS "Anyone can view student badges" ON student_badges; EXCEPTION WHEN OTHERS THEN END;
+    BEGIN DROP POLICY IF EXISTS "Tutors and admins can manage student badges" ON student_badges; EXCEPTION WHEN OTHERS THEN END;
 END $$;
 
 -- Enable RLS on all tables
@@ -265,6 +291,8 @@ ALTER TABLE enrollments          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lesson_progress      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tutor_availability   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE badges               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_badges       ENABLE ROW LEVEL SECURITY;
 
 -- Tutors
 CREATE POLICY "Tutors manage their own profile" ON tutors
@@ -371,6 +399,17 @@ CREATE POLICY "Students can create bookings" ON bookings FOR INSERT WITH CHECK (
 CREATE POLICY "Students can update their bookings" ON bookings FOR UPDATE USING (auth.uid() = student_id);
 CREATE POLICY "Tutors can update their bookings" ON bookings FOR UPDATE USING (auth.uid() = tutor_id);
 CREATE POLICY "Admins can manage all bookings" ON bookings FOR ALL USING (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
+
+-- Badges
+CREATE POLICY "Anyone can view badges" ON badges FOR SELECT USING (true);
+CREATE POLICY "Admins can manage badges" ON badges FOR ALL USING (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
+
+-- Student Badges
+CREATE POLICY "Anyone can view student badges" ON student_badges FOR SELECT USING (true);
+CREATE POLICY "Tutors and admins can manage student badges" ON student_badges FOR ALL USING (
+    auth.jwt() -> 'app_metadata' ->> 'role' = 'admin' 
+    OR EXISTS (SELECT 1 FROM tutors WHERE tutors.id = auth.uid())
+);
 
 
 -- =========================================================================

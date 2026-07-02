@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { Sparkles, MessageSquare, HelpCircle, CheckCircle, BarChart2, Youtube, Image as ImageIcon, Video, VideoOff, Mic, MicOff, MonitorUp, WifiOff, Pencil, PenLine } from 'lucide-react';
+import { Sparkles, MessageSquare, HelpCircle, CheckCircle, BarChart2, Youtube, Image as ImageIcon, Video, VideoOff, Mic, MicOff, MonitorUp, WifiOff, Pencil, PenLine, Award } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import VideoSidebar from '../components/Classroom/VideoSidebar';
 import { useVideoRoom } from '../hooks/useVideoRoom';
 import { generateLiveKitToken, generateRoomName } from '../services/videoService';
@@ -30,6 +31,7 @@ const ClassroomStudent = () => {
     const [stars, setStars] = useState(0);
     const starsRef = useRef(0); // Ref to avoid stale closure in heartbeat interval
     const [showStarPop, setShowStarPop] = useState(false);
+    const [earnedBadge, setEarnedBadge] = useState(null);
     const [roomError, setRoomError] = useState(null);
     const [collabMode, setCollabMode] = useState(false);
     const [showCollabBanner, setShowCollabBanner] = useState(false);
@@ -200,6 +202,49 @@ const ClassroomStudent = () => {
         burstConfetti(starBtnRef.current, 45);
         playStarChime();
     }, [student]);
+
+    // Listen for teacher rewards (stars and badges) via LiveKit Data Channel
+    useEffect(() => {
+        if (!room) return;
+
+        const handleData = (payload) => {
+            try {
+                const decoder = new TextDecoder();
+                const text = decoder.decode(payload);
+                const data = JSON.parse(text);
+
+                const localIdentity = room.localParticipant?.identity;
+
+                if (data.targetId === localIdentity) {
+                    if (data.type === 'reward_star') {
+                        setStars(prev => {
+                            const next = prev + 1;
+                            starsRef.current = next;
+                            return next;
+                        });
+                        setShowStarPop(true);
+                        setTimeout(() => setShowStarPop(false), 2000);
+                        burstConfetti(starBtnRef.current, 45);
+                        playStarChime();
+                    } else if (data.type === 'reward_badge') {
+                        setEarnedBadge({
+                            name: data.badgeName,
+                            icon: data.badgeIcon,
+                        });
+                        burstConfetti(null, 60);
+                        playStarChime();
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to parse received reward data packet:', err);
+            }
+        };
+
+        room.on('dataReceived', handleData);
+        return () => {
+            room.off('dataReceived', handleData);
+        };
+    }, [room]);
 
     const handleShoutSubmit = async () => {
         if (!shoutAnswer.trim() || !currentSlide?.id) return;
@@ -528,6 +573,47 @@ const ClassroomStudent = () => {
                     </div>
                 </main>
             </div>
+
+            {/* Earned Badge Popup overlay */}
+            <AnimatePresence>
+                {earnedBadge && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-950/70 backdrop-blur-md p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.85, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.85, y: 20 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+                            className="bg-white rounded-3xl p-8 max-w-sm w-full text-center border-4 border-yellow-400 shadow-2xl relative flex flex-col items-center"
+                        >
+                            <div className="absolute -top-12 w-24 h-24 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-full flex items-center justify-center shadow-lg border-4 border-white">
+                                <Award size={48} className="text-white animate-pulse" />
+                            </div>
+                            
+                            <div className="mt-14 space-y-4 flex flex-col items-center">
+                                <h3 className="text-2xl font-black text-gray-900 tracking-tight">Badge Earned!</h3>
+                                <div className="w-20 h-20 bg-yellow-50 rounded-2xl flex items-center justify-center border-2 border-yellow-100 shadow-inner">
+                                    <img src={earnedBadge.icon} alt="" className="w-14 h-14 object-contain animate-bounce" />
+                                </div>
+                                <div>
+                                    <h4 className="text-xl font-bold text-gray-800">{earnedBadge.name}</h4>
+                                    <p className="text-sm text-gray-500 mt-1">Outstanding! Your teacher awarded you this badge for your excellent performance.</p>
+                                </div>
+                                <button
+                                    onClick={() => setEarnedBadge(null)}
+                                    className="mt-6 w-full py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-950 font-black rounded-xl transition-all shadow-lg active:scale-95 uppercase tracking-wider text-sm"
+                                >
+                                    Awesome!
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

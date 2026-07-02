@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Users, LogOut, Copy, CheckCheck, Video, VideoOff, Mic, MicOff, MonitorUp } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Users, LogOut, Copy, CheckCheck, Video, VideoOff, Mic, MicOff, MonitorUp, Award, Sparkles, X } from 'lucide-react';
+import { DataPacket_Kind } from 'livekit-client';
 import Board from '../components/Whiteboard/Board';
 import { supabase } from '../lib/supabase';
 import { api } from '../services/api';
@@ -29,6 +30,78 @@ const ClassroomHost = () => {
     const [codeCopied, setCodeCopied] = useState(false);
     const [roomError, setRoomError] = useState(null);
     const joinedRef = React.useRef(false);
+
+    const [showRoster, setShowRoster] = useState(false);
+    const [badges, setBadges] = useState([]);
+    const [activeAwardingParticipantId, setActiveAwardingParticipantId] = useState(null);
+
+    useEffect(() => {
+        const fetchBadges = async () => {
+            try {
+                const { data } = await api.gamification.getBadges();
+                if (data) setBadges(data);
+            } catch (err) {
+                console.error('Failed to fetch badges list:', err);
+            }
+        };
+        fetchBadges();
+    }, []);
+
+    const handleAwardStar = async (participant) => {
+        const participantId = participant.identity;
+        
+        // 1. DB write (if not guest)
+        if (participantId && !participantId.startsWith('guest-')) {
+            try {
+                await api.gamification.awardStar(participantId, 1);
+            } catch (err) {
+                console.error('Error awarding star in DB:', err);
+            }
+        }
+        
+        // 2. Broadcast LiveKit packet
+        if (room && room.state === 'connected') {
+            try {
+                const encoder = new TextEncoder();
+                const payload = encoder.encode(JSON.stringify({
+                    type: 'reward_star',
+                    targetId: participantId,
+                }));
+                await room.localParticipant.publishData(payload, DataPacket_Kind.RELIABLE);
+            } catch (err) {
+                console.error('Failed to send star packet:', err);
+            }
+        }
+    };
+
+    const handleAwardBadge = async (participant, badge) => {
+        const participantId = participant.identity;
+        
+        // 1. DB write (if not guest)
+        if (participantId && !participantId.startsWith('guest-')) {
+            try {
+                await api.gamification.awardBadge(participantId, badge.id);
+            } catch (err) {
+                console.error('Error awarding badge in DB:', err);
+            }
+        }
+        
+        // 2. Broadcast LiveKit packet
+        if (room && room.state === 'connected') {
+            try {
+                const encoder = new TextEncoder();
+                const payload = encoder.encode(JSON.stringify({
+                    type: 'reward_badge',
+                    targetId: participantId,
+                    badgeName: badge.name,
+                    badgeIcon: badge.icon_url,
+                }));
+                await room.localParticipant.publishData(payload, DataPacket_Kind.RELIABLE);
+            } catch (err) {
+                console.error('Failed to send badge packet:', err);
+            }
+        }
+    };
 
     const {
         room,
@@ -235,11 +308,19 @@ const ClassroomHost = () => {
                             : <Copy size={14} className="text-gray-500" />}
                     </button>
 
-                    {/* Participants */}
-                    <div className="flex items-center gap-2 bg-gray-800 px-4 py-1.5 rounded-lg border border-gray-700">
-                        <Users size={15} className="text-emerald-400" />
+                    {/* Participants Toggle Button */}
+                    <button
+                        onClick={() => setShowRoster(!showRoster)}
+                        className={`flex items-center gap-2 px-4 py-1.5 rounded-lg border transition-all ${
+                            showRoster 
+                                ? 'bg-yellow-400 text-gray-950 border-yellow-400 shadow-lg hover:bg-yellow-500' 
+                                : 'bg-gray-800 hover:bg-gray-700 text-white border-gray-700'
+                        }`}
+                        title="Classroom Roster & Rewards"
+                    >
+                        <Users size={15} className={showRoster ? 'text-gray-950' : 'text-emerald-400'} />
                         <span className="text-sm font-semibold">{participants.length}</span>
-                    </div>
+                    </button>
 
                     {/* End Session */}
                     <button
@@ -351,7 +432,94 @@ const ClassroomHost = () => {
                         </div>
                     </div>
                 </div>
-        </div>
+
+                {/* Roster Panel */}
+                {showRoster && (
+                    <div className="w-[360px] border-l border-gray-850 bg-gray-950 shrink-0 flex flex-col h-full z-50">
+                        {/* Roster Header */}
+                        <div className="px-6 py-4 border-b border-gray-850 flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <Users size={18} className="text-yellow-400" />
+                                <span className="font-black text-sm uppercase tracking-widest text-white">Class Roster & Rewards</span>
+                            </div>
+                            <button
+                                onClick={() => setShowRoster(false)}
+                                className="p-1.5 hover:bg-white/5 text-gray-400 hover:text-white rounded-lg transition-colors"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Roster List */}
+                        <div className="flex-grow overflow-y-auto p-6 space-y-6">
+                            {participants.length === 0 ? (
+                                <div className="h-full flex flex-col items-center justify-center text-center text-gray-500">
+                                    <Users size={48} className="text-gray-800 mb-3" />
+                                    <h4 className="text-sm font-bold text-gray-400">Classroom is empty</h4>
+                                    <p className="text-xs text-gray-650 mt-1 max-w-[200px]">Waiting for students to join using code: {session.code}</p>
+                                </div>
+                            ) : (
+                                participants.map((p) => {
+                                    const isGuest = p.identity.startsWith('guest-');
+                                    return (
+                                        <div key={p.sid} className="bg-gray-900 border border-gray-800 p-4 rounded-2xl space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <h4 className="font-bold text-white text-base">{p.name || 'Student'}</h4>
+                                                    <span className={`text-[10px] font-black uppercase tracking-widest ${isGuest ? 'text-yellow-600/70' : 'text-emerald-500/70'}`}>
+                                                        {isGuest ? 'Guest Student' : 'Enrolled Student'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => handleAwardStar(p)}
+                                                    className="flex-1 py-2.5 bg-yellow-400 hover:bg-yellow-500 active:scale-95 text-gray-950 font-black text-xs uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-md shadow-yellow-500/10"
+                                                >
+                                                    <Sparkles size={14} className="animate-pulse" />
+                                                    Award Star
+                                                </button>
+
+                                                <button
+                                                    onClick={() => setActiveAwardingParticipantId(activeAwardingParticipantId === p.identity ? null : p.identity)}
+                                                    className="flex-1 py-2.5 bg-gray-805 hover:bg-gray-800 active:scale-95 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-1.5 border border-gray-700"
+                                                >
+                                                    <Award size={14} />
+                                                    Badges
+                                                </button>
+                                            </div>
+
+                                            {/* Badges list */}
+                                            {activeAwardingParticipantId === p.identity && (
+                                                <div className="pt-3 border-t border-gray-800 space-y-2">
+                                                    <span className="text-[9px] font-black uppercase tracking-wider text-gray-500 block mb-1">Select badge to award:</span>
+                                                    {badges.map((badge) => (
+                                                        <button
+                                                            key={badge.id}
+                                                            onClick={() => {
+                                                                handleAwardBadge(p, badge);
+                                                                setActiveAwardingParticipantId(null);
+                                                            }}
+                                                            className="w-full flex items-center gap-3 p-2 bg-gray-950 hover:bg-gray-800 border border-gray-800 hover:border-gray-700 rounded-xl transition-all text-left group"
+                                                        >
+                                                            <img src={badge.icon_url} alt="" className="w-7 h-7 object-contain" />
+                                                            <div>
+                                                                <p className="text-xs font-bold text-white group-hover:text-yellow-400 transition-colors">{badge.name}</p>
+                                                                <p className="text-[10px] text-gray-500 line-clamp-1">{badge.description}</p>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
     );
 };
 
