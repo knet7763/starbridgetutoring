@@ -20,3 +20,12 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 ReactDOM.createRoot(document.getElementById('root')).render(
     <App />
 )
+
+// Register Service Worker for PWA / Low-Bandwidth Caching
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('[Service Worker] Registered scope:', reg.scope))
+            .catch(err => console.error('[Service Worker] Registration failed:', err));
+    });
+}
