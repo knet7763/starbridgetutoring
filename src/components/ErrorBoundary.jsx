@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertCircle, RotateCcw } from 'lucide-react';
+import * as Sentry from '@sentry/react';
 
 /**
  * ErrorBoundary - Catches React component errors and displays a fallback UI
@@ -33,9 +34,11 @@ export class ErrorBoundary extends React.Component {
     }
 
     logToSentry = (error, errorInfo) => {
-        // Placeholder for Sentry integration
-        // TODO: Integrate Sentry when available
-        console.warn('Error logging not configured. Set up Sentry for production.');
+        Sentry.captureException(error, {
+            extra: {
+                componentStack: errorInfo?.componentStack
+            }
+        });
     };
 
     handleReset = () => {

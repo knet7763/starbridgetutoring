@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import * as Sentry from '@sentry/react';
 
 const AuthContext = createContext({});
 
@@ -68,6 +69,7 @@ export const AuthProvider = ({ children }) => {
                 setStudent(null);
                 setRole(null);
                 setProfileMissing(false);
+                Sentry.setUser(null);
                 return;
             }
 
@@ -82,6 +84,11 @@ export const AuthProvider = ({ children }) => {
                 setRole(trustedRole);
                 setStudent(null);
                 setProfileMissing(false);
+                Sentry.setUser({
+                    id: session.user.id,
+                    email: session.user.email,
+                    role: trustedRole,
+                });
                 return;
             }
 
@@ -89,8 +96,14 @@ export const AuthProvider = ({ children }) => {
                 markMissing: expectedRole === 'student',
             });
 
-            console.log('[AuthContext] applySession: setting role based on studentProfile:', studentProfile ? 'student' : null);
-            setRole(studentProfile ? 'student' : null);
+            const finalRole = studentProfile ? 'student' : null;
+            console.log('[AuthContext] applySession: setting role based on studentProfile:', finalRole);
+            setRole(finalRole);
+            Sentry.setUser({
+                id: session.user.id,
+                email: session.user.email,
+                role: finalRole || 'unknown',
+            });
         };
 
         const initializeAuth = async () => {

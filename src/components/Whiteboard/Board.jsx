@@ -202,7 +202,7 @@ const Board = ({
                     onMount={handleMount}
                     inferDarkMode
                     hideUi={readOnly}
-                    licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
+                    {...(import.meta.env.VITE_TLDRAW_LICENSE_KEY ? { licenseKey: import.meta.env.VITE_TLDRAW_LICENSE_KEY } : {})}
                 />
             )}
 

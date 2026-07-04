@@ -35,6 +35,9 @@ Create a `.env` file at the project root with the following values:
 ```bash
 VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
+
+# Optional: Add to remove tldraw watermark in production
+# VITE_TLDRAW_LICENSE_KEY=your-tldraw-license-key
 ```
 
 > `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` are Supabase Edge Function secrets and should NOT be stored in the client `.env` file.

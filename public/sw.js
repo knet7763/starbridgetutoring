@@ -1,6 +1,10 @@
 const CACHE_NAME = 'starbridge-pwa-cache-v2';
 const API_CACHE_NAME = 'starbridge-api-cache-v2';
 
+const swUrl = new URL(self.location.href);
+const supabaseUrlParam = swUrl.searchParams.get('supabaseUrl');
+const SUPABASE_ORIGIN = supabaseUrlParam ? new URL(supabaseUrlParam).origin : 'https://acrzypzzbbkdisietjlf.supabase.co';
+
 const STATIC_ASSETS = [
   '/',
   '/index.html'
@@ -35,7 +39,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
 
   // Intercept Supabase database calls (slides, lessons data)
-  if (url.origin === 'https://acrzypzzbbkdisietjlf.supabase.co') {
+  if (url.origin === SUPABASE_ORIGIN) {
     // Only cache GET/SELECT requests
     if (e.request.method === 'GET') {
       e.respondWith(
