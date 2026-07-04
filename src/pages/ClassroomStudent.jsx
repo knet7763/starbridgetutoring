@@ -69,6 +69,7 @@ const ClassroomStudent = () => {
         room,
         participants,
         isJoined,
+        isConnecting,
         error: videoError,
         joinRoom,
         leaveRoom,
