@@ -507,11 +507,12 @@ const ClassroomStudent = () => {
 
             <div className="flex-1 flex overflow-hidden">
                 {/* Video Sidebar Component */}
-                {(isJoined || isFallback) && (
+                {(isJoined || isConnecting || isFallback) && (
                     <VideoSidebar 
                         room={room} 
                         participants={participants} 
                         isFallback={isFallback}
+                        isConnecting={isConnecting}
                         roomName={session?.id ? generateRoomName(session.id) : (sessionId || '')}
                         displayName={guestName}
                         onSwitchFallback={switchToFallback}

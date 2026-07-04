@@ -392,6 +392,7 @@ const ClassroomHost = () => {
                             room={room} 
                             participants={participants} 
                             isFallback={isFallback}
+                            isConnecting={isConnecting}
                             roomName={session?.room_url || (session?.id ? generateRoomName(session.id) : '')}
                             displayName="Teacher"
                             onSwitchFallback={switchToFallback}

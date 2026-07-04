@@ -125,12 +125,29 @@ const VideoSidebar = ({
     room, 
     participants = [], 
     isFallback, 
+    isConnecting,
     roomName, 
     displayName, 
     onSwitchFallback, 
     className = "w-72 border-l border-gray-800" 
 }) => {
-    if (!room && !isFallback) return null;
+    if (!room && !isFallback && !isConnecting) return null;
+
+    if (isConnecting) {
+        return (
+            <div className={`${className} flex-shrink-0 bg-gray-950 flex flex-col h-full p-6 gap-4 z-50 justify-center items-center`}>
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-yellow-400 mb-2"></div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-black text-center">Connecting to video room...</p>
+                <p className="text-[11px] text-gray-500 text-center max-w-[200px]">Waiting for peer channels to establish</p>
+                <button
+                    onClick={onSwitchFallback}
+                    className="mt-6 py-2 px-4 bg-red-950/20 hover:bg-red-950/40 text-red-400 border border-red-900/30 rounded-xl text-[10px] font-black tracking-wider uppercase transition-all"
+                >
+                    Use Backup Video (Jitsi)
+                </button>
+            </div>
+        );
+    }
 
     if (isFallback) {
         return (

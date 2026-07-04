@@ -81,9 +81,10 @@ export function useVideoRoom() {
             });
 
             newRoom.on('disconnected', () => {
-                console.log('[LiveKit] Disconnected from room');
+                console.log('[LiveKit] Disconnected from room, switching to fallback');
                 setIsJoined(false);
                 setIsConnecting(false);
+                setIsFallback(true);
             });
 
             newRoom.on('participantConnected', (participant) => {
