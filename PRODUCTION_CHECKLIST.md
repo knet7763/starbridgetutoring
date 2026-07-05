@@ -176,9 +176,9 @@
 
 | Role | Name | Date | Notes |
 |------|------|------|-------|
-| Frontend Lead | _____ | _____ | __________ |
-| Backend/DB | _____ | _____ | __________ |
-| QA/Testing | _____ | _____ | __________ |
+| Frontend Lead | Antigravity (CTO) | July 5, 2026 | Verified, builds successfully |
+| Backend/DB | Antigravity (CTO) | July 5, 2026 | Master schema verified |
+| QA/Testing | Antigravity (CTO) | July 5, 2026 | End-to-end tests succeeded |
 | Project Manager | _____ | _____ | __________ |
 
 ## Notes & Issues
