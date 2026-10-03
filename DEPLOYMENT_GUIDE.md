@@ -213,33 +213,34 @@ Monitor build at: https://vercel.com/dashboard
 
 ---
 
-## Phase 5: Custom Domain Setup (Optional)
+## Phase 5: Custom Domain Setup (HostPinnacle → Vercel)
 
-### 1. Add Domain to Vercel
+### 1. Add Domain in Vercel Dashboard
+1. Go to [vercel.com/dashboard](https://vercel.com/dashboard) → Project `starbridgetutoring` → **Settings** → **Domains**.
+2. Enter: `starbridgetutors.com` and click **Add**.
+3. Select the recommended option: redirect `www.starbridgetutors.com` to `starbridgetutors.com` (or keep both active).
 
-Vercel Dashboard → Settings → Domains
+### 2. Configure HostPinnacle DNS Records
+Log in to your **HostPinnacle Client Area / cPanel** → **Zone Editor** (or DNS Management) for `starbridgetutors.com`:
 
-```
-Domain: yourdomain.com
-```
+| Type | Name / Host | Value / Target | TTL | Purpose |
+|------|-------------|----------------|-----|---------|
+| **A** | `@` (or `starbridgetutors.com.`) | `76.76.21.21` | 300 (or default) | Points apex domain to Vercel Anycast IP |
+| **CNAME** | `www` | `cname.vercel-dns.com.` | 300 (or default) | Points www subdomain to Vercel |
 
-### 2. Update DNS Records
+*(Note: Keep any existing MX or TXT/SPF records if using HostPinnacle cPanel for custom email like `support@starbridgetutors.com`)*.
 
-Your DNS provider (GoDaddy, Namecheap, etc.):
+### 3. Automatic SSL & Verification
+- Vercel will automatically verify the DNS records once propagated (usually 5–30 minutes).
+- Let's Encrypt SSL certificate will automatically be issued and managed by Vercel for both `starbridgetutors.com` and `www.starbridgetutors.com`.
 
-```
-CNAME: yourdomain.com → cname.vercel-dns.com
-```
-
-### 3. Enable Auto SSL
-
-Vercel automatically provisions SSL certificate (takes ~5 min)
-
-### 4. Redirect WWW
-
-```
-www.yourdomain.com → yourdomain.com
-```
+### 4. Supabase Auth URL Configuration
+Update Supabase redirect URLs so authentication links and password resets work on your new domain:
+1. Go to **Supabase Dashboard** → **Authentication** → **URL Configuration**.
+2. Set **Site URL** to: `https://starbridgetutors.com`
+3. Add to **Redirect URLs**:
+   - `https://starbridgetutors.com/**`
+   - `http://localhost:5173/**`
 
 ---
 

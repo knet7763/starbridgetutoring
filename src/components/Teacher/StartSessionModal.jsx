@@ -92,7 +92,7 @@ const StartSessionModal = ({ lesson, onClose }) => {
                             </button>
                         </div>
                         <p className="text-center text-sm text-gray-500 mb-4">
-                            Students go to <span className="font-bold text-primary">starbridgetutor.com/join</span>
+                            Students go to <span className="font-bold text-primary">{typeof window !== 'undefined' ? `${window.location.host}/join` : 'starbridgetutors.com/join'}</span>
                         </p>
                         <button
                             onClick={handleEnterClassroom}

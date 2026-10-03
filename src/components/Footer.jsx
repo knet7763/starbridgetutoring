@@ -45,7 +45,7 @@ const Footer = () => {
                                 <div className="p-2 bg-gray-800 rounded-lg text-primary">
                                     <Mail size={16} />
                                 </div>
-                                <span>info@starbridgetutoring.com</span>
+                                <span>info@starbridgetutors.com</span>
                             </li>
                             <li className="flex items-center gap-3">
                                 <div className="p-2 bg-gray-800 rounded-lg text-primary">
