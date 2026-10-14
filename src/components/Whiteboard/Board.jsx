@@ -15,6 +15,7 @@ const Board = ({
     const editorRef = useRef(null);
     const isBroadcasting = useRef(false);
     const timeoutRef = useRef(null);
+    const channelRef = useRef(null);
 
     // AI Analyzer state
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -45,7 +46,7 @@ const Board = ({
 
     // Broadcast the current board state to all connected students
     const broadcast = useCallback(() => {
-        if (!sessionId || !editorRef.current || readOnly || !tldrawUtils.getSnapshot) return;
+        if (!sessionId || !editorRef.current || readOnly || !tldrawUtils.getSnapshot || !channelRef.current) return;
 
         // Throttle: mark as broadcasting and only send if not currently throttled
         if (isBroadcasting.current) return;
@@ -53,11 +54,13 @@ const Board = ({
         setTimeout(() => { isBroadcasting.current = false; }, 120); // ~8fps max
 
         const snapshot = tldrawUtils.getSnapshot(editorRef.current.store);
-        supabase.channel(`whiteboard:${sessionId}`).send({
+        channelRef.current.send({
             type: 'broadcast',
             event: 'draw',
-            payload: snapshot,
-        });
+            payload: {
+                document: snapshot.document,
+            },
+        }).catch(err => console.warn('Whiteboard broadcast warning:', err));
     }, [sessionId, readOnly, tldrawUtils]);
 
     const onChangeRef = useRef(onChange);
@@ -88,24 +91,44 @@ const Board = ({
             const channel = supabase
                 .channel(`whiteboard:${sessionId}`)
                 .on('broadcast', { event: 'draw' }, ({ payload }) => {
-                    if (editorRef.current && tldrawUtils.loadSnapshot) {
+                    if (editorRef.current) {
                         try {
-                            tldrawUtils.loadSnapshot(editorRef.current.store, payload);
+                            const store = editorRef.current.store;
+                            const records = payload?.document?.records;
+                            if (records && typeof store.mergeRemoteChanges === 'function') {
+                                // Efficiently update shapes in-place without resetting camera zoom or flickering canvas
+                                const recordList = Array.isArray(records) ? records : Object.values(records);
+                                store.mergeRemoteChanges(() => {
+                                    store.put(recordList);
+                                });
+                            } else if (payload && tldrawUtils.loadSnapshot) {
+                                tldrawUtils.loadSnapshot(store, payload);
+                            }
                         } catch (e) {
-                            console.error('Failed to load broadcasted snapshot:', e);
+                            console.error('Failed to apply broadcasted whiteboard snapshot:', e);
                         }
                     }
                 })
                 .subscribe();
 
-            return () => supabase.removeChannel(channel);
+            channelRef.current = channel;
+
+            return () => {
+                channelRef.current = null;
+                supabase.removeChannel(channel);
+            };
         } else {
             // Teacher: Subscribe the channel so it's open for broadcasting
             const channel = supabase
                 .channel(`whiteboard:${sessionId}`)
                 .subscribe();
 
-            return () => supabase.removeChannel(channel);
+            channelRef.current = channel;
+
+            return () => {
+                channelRef.current = null;
+                supabase.removeChannel(channel);
+            };
         }
     }, [sessionId, readOnly, tldrawUtils]);
 

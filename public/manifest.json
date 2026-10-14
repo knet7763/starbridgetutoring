@@ -1,0 +1,24 @@
+{
+  "name": "StarBridge Tutoring",
+  "short_name": "StarBridge",
+  "description": "Premium 1-on-1 personalized tutoring for Quran, Islamic Studies, and Core Academic Subjects.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/og-image.jpg",
+      "sizes": "1280x720",
+      "type": "image/jpeg"
+    }
+  ],
+  "categories": ["education", "kids", "learning"]
+}

@@ -29,3 +29,11 @@ dist-ssr
 .env.production
 supabase/.temp/
 .vercel
+
+# Local secrets & test admin scripts
+local_token_server.js
+reset-passwords.*
+unique_passwords.sql
+reset_passwords.sql
+*.secret.*
+scratch/

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
 /**
@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 export function useRealtimeClassroom(classId, onSlideChange, onInteraction) {
     const [isConnected, setIsConnected] = useState(false);
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+    const channelRef = useRef(null);
 
     useEffect(() => {
         if (!classId) return;
@@ -49,30 +50,38 @@ export function useRealtimeClassroom(classId, onSlideChange, onInteraction) {
                 }
             });
 
+        channelRef.current = channel;
+
         return () => {
+            channelRef.current = null;
             supabase.removeChannel(channel);
         };
     }, [classId, onSlideChange, onInteraction]);
 
     // Function for teachers to update the slide index in the DB
-    const updateSlide = async (newIndex) => {
+    const updateSlide = useCallback(async (newIndex) => {
+        if (!classId) return;
         const { error } = await supabase
             .from('lessons')
             .update({ current_slide_index: newIndex })
             .eq('id', classId);
 
         if (error) console.error("Error updating slide:", error);
-    };
+    }, [classId]);
 
     // Function for teachers to send transient broadcast interactions to all students
-    const sendInteraction = async (payload) => {
-        const channel = supabase.channel(`public:lessons:${classId}`);
-        await channel.send({
-            type: 'broadcast',
-            event: 'interaction',
-            payload: payload
-        });
-    };
+    const sendInteraction = useCallback(async (payload) => {
+        if (!channelRef.current) return;
+        try {
+            await channelRef.current.send({
+                type: 'broadcast',
+                event: 'interaction',
+                payload: payload
+            });
+        } catch (err) {
+            console.error("Error broadcasting interaction:", err);
+        }
+    }, []);
 
     return {
         isConnected,

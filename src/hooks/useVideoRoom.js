@@ -29,7 +29,7 @@ export function useVideoRoom() {
         setError(null);
         setIsFallback(false);
 
-        // Start connection timeout (8 seconds)
+        // Start connection timeout (15 seconds)
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         timeoutRef.current = setTimeout(() => {
             if (!roomRef.current || roomRef.current.state !== 'connected') {
@@ -38,20 +38,20 @@ export function useVideoRoom() {
                 setIsConnecting(false);
                 setError('LiveKit connection timed out. Switched to backup video server.');
             }
-        }, 8000);
+        }, 15000);
 
         try {
             if (!liveKitUrl || !token || !roomName) {
                 throw new Error('Missing required parameters: liveKitUrl, token, roomName');
             }
 
-            // Create and configure LiveKit room
+            // Create and configure LiveKit room with VP8 for universal cross-browser/mobile stability
             const newRoom = new Room({
                 autoConnect: false,
                 autoSubscribe: true,
                 dynacast: true,
                 publishDefaults: {
-                    codec: 'vp9',
+                    codec: 'vp8',
                     simulcast: true,
                     screenShareEncoding: {
                         maxBitrate: 500000,
@@ -80,11 +80,21 @@ export function useVideoRoom() {
                 setIsConnecting(false);
             });
 
+            newRoom.on('reconnecting', () => {
+                console.log('[LiveKit] Network hiccup, attempting automatic reconnection...');
+                setIsConnecting(true);
+            });
+
+            newRoom.on('reconnected', () => {
+                console.log('[LiveKit] Successfully reconnected to room');
+                setIsConnecting(false);
+                setIsJoined(true);
+            });
+
             newRoom.on('disconnected', () => {
-                console.log('[LiveKit] Disconnected from room, switching to fallback');
+                console.log('[LiveKit] Disconnected from room');
                 setIsJoined(false);
                 setIsConnecting(false);
-                setIsFallback(true);
             });
 
             newRoom.on('participantConnected', (participant) => {

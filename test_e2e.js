@@ -14,10 +14,10 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function runE2ETest() {
   console.log("🚀 Starting End-to-End Booking Test...\n");
 
-  const tutorEmail = 'richkevonlinestore@gmail.com';
-  const tutorPassword = 'RichKev2026!';
-  const studentEmail = 'johnnynjsh@gmail.com';
-  const studentPassword = 'Johnny2026!';
+  const tutorEmail = process.env.TEST_TUTOR_EMAIL || 'tutor.test@starbridgetutoring.com';
+  const tutorPassword = process.env.TEST_TUTOR_PASSWORD || 'TutorTestPass2026!';
+  const studentEmail = process.env.TEST_STUDENT_EMAIL || 'student.test@starbridgetutoring.com';
+  const studentPassword = process.env.TEST_STUDENT_PASSWORD || 'StudentTestPass2026!';
 
   try {
     // 1. Sign in Tutor

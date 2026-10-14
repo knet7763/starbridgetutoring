@@ -1,0 +1,22 @@
+# StarBridge Tutoring Robots.txt
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /subjects
+Allow: /tutors
+Allow: /lessons
+Allow: /pricing
+Allow: /how-it-works
+Allow: /contact
+Allow: /book-trial
+Allow: /join
+
+# Disallow authenticated private portals from search index
+Disallow: /classroom/
+Disallow: /teacher/
+Disallow: /admin/
+Disallow: /student/dashboard
+Disallow: /book-session/
+
+# Sitemap location
+Sitemap: https://starbridgetutors.com/sitemap.xml

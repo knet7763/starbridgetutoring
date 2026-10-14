@@ -1,7 +1,7 @@
-const puppeteer = require('puppeteer');
+const { chromium } = require('playwright');
 
 (async () => {
-  const browser = await puppeteer.launch({ headless: 'new' });
+  const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   
   try {

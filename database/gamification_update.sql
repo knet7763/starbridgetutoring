@@ -24,10 +24,22 @@ ALTER TABLE badges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_badges ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
+DROP POLICY IF EXISTS "Anyone can view badges" ON badges;
 CREATE POLICY "Anyone can view badges" ON badges FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Anyone can view student badges" ON student_badges;
 CREATE POLICY "Anyone can view student badges" ON student_badges FOR SELECT USING (true);
-CREATE POLICY "Admins can manage badges" ON badges FOR ALL USING (auth.jwt()->>'role' = 'admin');
-CREATE POLICY "Admins can manage student badges" ON student_badges FOR ALL USING (auth.jwt()->>'role' = 'admin');
+
+DROP POLICY IF EXISTS "Admins can manage badges" ON badges;
+CREATE POLICY "Admins can manage badges" ON badges FOR ALL USING (
+    COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', auth.jwt() ->> 'role') = 'admin'
+);
+
+DROP POLICY IF EXISTS "Admins and teachers can manage student badges" ON student_badges;
+DROP POLICY IF EXISTS "Admins can manage student badges" ON student_badges;
+CREATE POLICY "Admins and teachers can manage student badges" ON student_badges FOR ALL USING (
+    COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', auth.jwt() ->> 'role') IN ('admin', 'teacher')
+);
 
 -- Seed initial badges
 INSERT INTO badges (name, description, icon_url) VALUES
