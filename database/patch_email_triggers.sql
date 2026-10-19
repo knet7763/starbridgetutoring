@@ -44,9 +44,19 @@ DECLARE
     v_student_email TEXT;
     v_tutor_name    TEXT;
     v_tutor_email   TEXT;
-    v_supabase_url  TEXT := current_setting('app.settings.supabase_url', true);
-    v_service_key   TEXT := current_setting('app.settings.service_role_key', true);
+    v_supabase_url  TEXT;
+    v_service_key   TEXT;
 BEGIN
+    SELECT value INTO v_supabase_url FROM public.app_settings WHERE key = 'supabase_url';
+    IF v_supabase_url IS NULL THEN
+        v_supabase_url := current_setting('app.settings.supabase_url', true);
+    END IF;
+
+    SELECT value INTO v_service_key FROM public.app_settings WHERE key = 'service_role_key';
+    IF v_service_key IS NULL THEN
+        v_service_key := current_setting('app.settings.service_role_key', true);
+    END IF;
+
     -- Fetch student details
     SELECT full_name, email INTO v_student_name, v_student_email
     FROM public.student_profiles WHERE id = NEW.student_id;
@@ -56,7 +66,7 @@ BEGIN
     SELECT email INTO v_tutor_email FROM auth.users WHERE id = NEW.tutor_id;
 
     -- Notify teacher (booking_created_teacher)
-    IF v_tutor_email IS NOT NULL THEN
+    IF v_tutor_email IS NOT NULL AND v_supabase_url IS NOT NULL AND v_service_key IS NOT NULL THEN
         PERFORM net.http_post(
             url := v_supabase_url || '/functions/v1/send-email',
             headers := jsonb_build_object(
@@ -101,17 +111,27 @@ DECLARE
     v_student_name  TEXT;
     v_student_email TEXT;
     v_tutor_name    TEXT;
-    v_supabase_url  TEXT := current_setting('app.settings.supabase_url', true);
-    v_service_key   TEXT := current_setting('app.settings.service_role_key', true);
+    v_supabase_url  TEXT;
+    v_service_key   TEXT;
 BEGIN
     -- Only fire when status changes TO 'confirmed'
     IF NEW.status = 'confirmed' AND (OLD.status IS DISTINCT FROM 'confirmed') THEN
+        SELECT value INTO v_supabase_url FROM public.app_settings WHERE key = 'supabase_url';
+        IF v_supabase_url IS NULL THEN
+            v_supabase_url := current_setting('app.settings.supabase_url', true);
+        END IF;
+
+        SELECT value INTO v_service_key FROM public.app_settings WHERE key = 'service_role_key';
+        IF v_service_key IS NULL THEN
+            v_service_key := current_setting('app.settings.service_role_key', true);
+        END IF;
+
         SELECT full_name, email INTO v_student_name, v_student_email
         FROM public.student_profiles WHERE id = NEW.student_id;
 
         SELECT name INTO v_tutor_name FROM public.tutors WHERE id = NEW.tutor_id;
 
-        IF v_student_email IS NOT NULL THEN
+        IF v_student_email IS NOT NULL AND v_supabase_url IS NOT NULL AND v_service_key IS NOT NULL THEN
             PERFORM net.http_post(
                 url := v_supabase_url || '/functions/v1/send-email',
                 headers := jsonb_build_object(
@@ -153,13 +173,25 @@ SECURITY DEFINER
 AS $$
 DECLARE
     v_admin_email   TEXT;
-    v_supabase_url  TEXT := current_setting('app.settings.supabase_url', true);
-    v_service_key   TEXT := current_setting('app.settings.service_role_key', true);
+    v_supabase_url  TEXT;
+    v_service_key   TEXT;
 BEGIN
-    -- Pull admin email from environment setting (set via: ALTER DATABASE postgres SET app.settings.admin_email = 'admin@starbridgetutors.com')
-    v_admin_email := current_setting('app.settings.admin_email', true);
+    SELECT value INTO v_admin_email FROM public.app_settings WHERE key = 'admin_email';
+    IF v_admin_email IS NULL THEN
+        v_admin_email := current_setting('app.settings.admin_email', true);
+    END IF;
 
-    IF v_admin_email IS NOT NULL THEN
+    SELECT value INTO v_supabase_url FROM public.app_settings WHERE key = 'supabase_url';
+    IF v_supabase_url IS NULL THEN
+        v_supabase_url := current_setting('app.settings.supabase_url', true);
+    END IF;
+
+    SELECT value INTO v_service_key FROM public.app_settings WHERE key = 'service_role_key';
+    IF v_service_key IS NULL THEN
+        v_service_key := current_setting('app.settings.service_role_key', true);
+    END IF;
+
+    IF v_admin_email IS NOT NULL AND v_supabase_url IS NOT NULL AND v_service_key IS NOT NULL THEN
         PERFORM net.http_post(
             url := v_supabase_url || '/functions/v1/send-email',
             headers := jsonb_build_object(
@@ -191,14 +223,3 @@ CREATE TRIGGER on_trial_request
     FOR EACH ROW
     EXECUTE FUNCTION public.notify_trial_request();
 
--- ──────────────────────────────────────────────────────────
--- 5. Set required app-level config settings
--- ──────────────────────────────────────────────────────────
--- Run ONCE after applying this migration (replace values with your real credentials):
--- 
---   ALTER DATABASE postgres SET "app.settings.admin_email" = 'info@starbridgetutors.com';
---   ALTER DATABASE postgres SET "app.settings.supabase_url" = 'https://YOUR_PROJECT_REF.supabase.co';
---   ALTER DATABASE postgres SET "app.settings.service_role_key" = 'YOUR_SERVICE_ROLE_KEY';
---
--- These are safe — service_role_key is not exposed to client-side at all.
--- The triggers run SECURITY DEFINER inside Postgres, never in the browser.

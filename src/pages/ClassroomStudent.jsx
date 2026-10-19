@@ -30,6 +30,8 @@ const ClassroomStudent = () => {
     const [submittedSlideIds, setSubmittedSlideIds] = useState(new Set());
     const [stars, setStars] = useState(0);
     const starsRef = useRef(0); // Ref to avoid stale closure in heartbeat interval
+    const currentSlideIdRef = useRef(null); // Ref to avoid stale closure in heartbeat interval
+    const slidesRef = useRef([]); // Ref to avoid stale closure in heartbeat interval
     const [showStarPop, setShowStarPop] = useState(false);
     const [earnedBadge, setEarnedBadge] = useState(null);
     const [roomError, setRoomError] = useState(null);
@@ -115,10 +117,12 @@ const ClassroomStudent = () => {
                     lesson_id: sessionData.lesson_id
                 });
 
+                currentSlideIdRef.current = sessionData.current_slide_id;
                 setCurrentSlideId(sessionData.current_slide_id);
 
                 const { data: slidesData, error: slidesError } = await api.slides.getByLessonId(sessionData.lesson_id);
                 if (slidesError) throw slidesError;
+                slidesRef.current = slidesData || [];
                 setSlides(slidesData || []);
 
                 // Join LiveKit — only once
@@ -145,6 +149,7 @@ const ClassroomStudent = () => {
                         filter: `id=eq.${sessionId}`
                     }, (payload) => {
                         if (payload.new.current_slide_id !== undefined) {
+                            currentSlideIdRef.current = payload.new.current_slide_id;
                             setCurrentSlideId(payload.new.current_slide_id);
                         }
                         if (payload.new.is_active === false) {
@@ -163,10 +168,10 @@ const ClassroomStudent = () => {
                     })
                     .subscribe();
 
-                // Start heartbeat every 10 seconds
+                // Start heartbeat every 10 seconds — always reads latest refs to avoid stale closure
                 if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
                 heartbeatIntervalRef.current = setInterval(() => {
-                    const currentSlide = (slidesData || []).find(s => s.id === sessionData.current_slide_id);
+                    const currentSlide = (slidesRef.current || []).find(s => s.id === currentSlideIdRef.current);
                     sendHeartbeat(sessionChannel, currentSlide);
                 }, 10000);
 

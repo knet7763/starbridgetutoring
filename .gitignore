@@ -39,3 +39,4 @@ reset_passwords.sql
 scratch/
 *_temp.*
 *.temp.*
+*.timestamp-*.mjs
