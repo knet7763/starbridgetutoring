@@ -30,6 +30,22 @@ const TeacherBookingsTab = ({ user }) => {
         setActionError(null);
         try {
             await api.bookings.confirmWithRoom(id);
+
+            // Send confirmation email to student (non-blocking — fires in background)
+            const booking = bookings.find(b => b.id === id);
+            if (booking?.students?.email || booking?.students?.full_name) {
+                const studentEmail = booking.students?.email;
+                if (studentEmail) {
+                    api.email.send('booking_confirmed_student', studentEmail, {
+                        studentName: booking.students?.full_name || 'Student',
+                        teacherName: user?.user_metadata?.full_name || user?.email || 'Your Tutor',
+                        date: new Date(booking.booking_date).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+                        startTime: booking.start_time,
+                        endTime: booking.end_time,
+                    }).catch(err => console.warn('[email] Confirmation email failed silently:', err));
+                }
+            }
+
             await fetchBookings();
         } catch (error) {
             console.error('Error confirming booking', error);

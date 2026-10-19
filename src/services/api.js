@@ -169,16 +169,12 @@ export const api = {
             .eq('id', studentId)
             .single(),
         awardStar: async (studentId, count = 1) => {
-            const { data } = await supabase
-                .from('student_profiles')
-                .select('stars')
-                .eq('id', studentId)
-                .single();
-            const currentStars = data?.stars || 0;
-            return supabase
-                .from('student_profiles')
-                .update({ stars: currentStars + count })
-                .eq('id', studentId);
+            // Uses atomic DB RPC to avoid read-then-write race conditions
+            // when two star awards fire concurrently for the same student
+            return supabase.rpc('increment_student_stars', {
+                p_student_id: studentId,
+                p_count: count,
+            });
         },
         getBadges: () => supabase.from('badges').select('*'),
         getStudentBadges: (studentId) => supabase
@@ -346,6 +342,19 @@ The classroom whiteboard is centered on the theme **"${slideTitle || 'Interactiv
                 error: null
             };
         }
-    }
+    },
+    email: {
+        /**
+         * Send a transactional email via the send-email Edge Function.
+         * @param {string} templateId - One of: booking_created_teacher, booking_confirmed_student,
+         *                             trial_request_admin, session_reminder_student
+         * @param {string|string[]} to - Recipient email address(es)
+         * @param {Record<string, string>} data - Template variable substitutions
+         */
+        send: (templateId, to, data = {}) =>
+            supabase.functions.invoke('send-email', {
+                body: { templateId, to, data },
+            }),
+    },
 };
 

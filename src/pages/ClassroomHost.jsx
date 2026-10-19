@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Users, LogOut, Copy, CheckCheck, Video, VideoOff, Mic, MicOff, MonitorUp, Award, Sparkles, X } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Users, LogOut, Copy, CheckCheck, Video, VideoOff, Mic, MicOff, MonitorUp, Award, Sparkles, X, Activity, AlertTriangle } from 'lucide-react';
 import { DataPacket_Kind } from 'livekit-client';
 import Board from '../components/Whiteboard/Board';
 import { supabase } from '../lib/supabase';
@@ -40,6 +40,9 @@ const ClassroomHost = () => {
     const [progressPercent, setProgressPercent] = useState(50);
     const [feedbackNotes, setFeedbackNotes] = useState('');
     const [savingFeedback, setSavingFeedback] = useState(false);
+    // Live student presence map: { [participantName]: { stars, currentSlideType, timestamp } }
+    const [studentPresence, setStudentPresence] = useState({});
+    const [videoErrorToast, setVideoErrorToast] = useState(null);
 
     useEffect(() => {
         const fetchBadges = async () => {
@@ -173,15 +176,28 @@ const ClassroomHost = () => {
         fetchSessionData();
 
         // Subscribe to participants
-        const channel = supabase
+        const participantChannel = supabase
             .channel(`session:${sessionId}`)
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'session_participants', filter: `session_id=eq.${sessionId}` }, (payload) => {
                 setSessionParticipants(prev => [...prev, payload.new]);
             })
+            // Listen to student heartbeats for real-time presence
+            .on('broadcast', { event: 'student_heartbeat' }, ({ payload }) => {
+                if (payload?.name) {
+                    setStudentPresence(prev => ({
+                        ...prev,
+                        [payload.name]: {
+                            stars: payload.stars || 0,
+                            currentSlideType: payload.currentSlideType || 'unknown',
+                            timestamp: payload.timestamp || Date.now(),
+                        }
+                    }));
+                }
+            })
             .subscribe();
 
         return () => {
-            supabase.removeChannel(channel);
+            supabase.removeChannel(participantChannel);
         };
     }, [sessionId, joinRoom]);
 
@@ -307,26 +323,33 @@ const ClassroomHost = () => {
 
     if (loading) return <div className="flex justify-center items-center h-screen bg-gray-900 text-white">Loading Classroom...</div>;
     if (!session) return <div className="text-white text-center pt-20">Session not found</div>;
-    if (roomError || videoError) return (
-        <div className="flex justify-center items-center h-screen bg-gray-900 text-white px-4">
-            <div className="text-center">
-                <h2 className="text-2xl font-bold mb-4">Classroom Connection Error</h2>
-                <p className="text-red-400 mb-6">{roomError || videoError}</p>
-                <button 
-                    onClick={() => navigate('/teacher/dashboard')}
-                    className="bg-primary text-white px-6 py-3 rounded-lg font-bold hover:bg-yellow-600"
-                >
-                    Back to Dashboard
-                </button>
-            </div>
-        </div>
-    );
 
     const currentSlide = slides[currentSlideIndex];
 
     return (
         <div className="h-screen flex flex-col bg-gray-900 text-white">
-            {/* Top Bar */}
+
+            {/* Video Error Toast – doesn't crash the classroom */}
+            {(videoError || videoErrorToast) && (
+                <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-amber-900/90 border border-amber-700 text-amber-100 px-5 py-3 rounded-xl shadow-2xl text-sm font-semibold backdrop-blur">
+                    <AlertTriangle size={16} className="text-amber-400 shrink-0" />
+                    <span>{videoError || videoErrorToast}</span>
+                    <button onClick={() => setVideoErrorToast(null)} className="ml-2 p-0.5 hover:bg-amber-700 rounded">
+                        <X size={14} />
+                    </button>
+                </div>
+            )}
+
+            {/* Room Error – only a hard crash if session data itself failed */}
+            {roomError && !session && (
+                <div className="flex justify-center items-center h-screen bg-gray-900 text-white px-4">
+                    <div className="text-center">
+                        <h2 className="text-2xl font-bold mb-4">Classroom Load Error</h2>
+                        <p className="text-red-400 mb-6">{roomError}</p>
+                        <button onClick={() => navigate('/teacher/dashboard')} className="bg-primary text-white px-6 py-3 rounded-lg font-bold hover:bg-yellow-600">Back to Dashboard</button>
+                    </div>
+                </div>
+            )}
             <div className="h-14 flex items-center justify-between px-6 border-b border-gray-800">
                 <div className="flex items-center gap-3">
                     <div className="flex flex-col">
@@ -516,14 +539,24 @@ const ClassroomHost = () => {
                             ) : (
                                 participants.map((p) => {
                                     const isGuest = p.identity.startsWith('guest-');
+                                    const presence = studentPresence[p.name] || null;
+                                    const isActive = presence && (Date.now() - presence.timestamp) < 30000;
                                     return (
                                         <div key={p.sid} className="bg-gray-900 border border-gray-800 p-4 rounded-2xl space-y-4">
                                             <div className="flex items-center justify-between">
                                                 <div>
                                                     <h4 className="font-bold text-white text-base">{p.name || 'Student'}</h4>
-                                                    <span className={`text-[10px] font-black uppercase tracking-widest ${isGuest ? 'text-yellow-600/70' : 'text-emerald-500/70'}`}>
-                                                        {isGuest ? 'Guest Student' : 'Enrolled Student'}
-                                                    </span>
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${isGuest ? 'text-yellow-600/70' : 'text-emerald-500/70'}`}>
+                                                            {isGuest ? 'Guest Student' : 'Enrolled Student'}
+                                                        </span>
+                                                        {isActive && (
+                                                            <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-bold">
+                                                                <Activity size={10} />
+                                                                Live · {presence.stars} ⭐
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
 

@@ -37,3 +37,5 @@ unique_passwords.sql
 reset_passwords.sql
 *.secret.*
 scratch/
+*_temp.*
+*.temp.*
