@@ -29,6 +29,17 @@ const BookTrial = () => {
         try {
             const { error: submitError } = await api.trials.create(formData);
             if (submitError) throw submitError;
+
+            // Send notification email to admin (non-blocking)
+            api.email.send('trial_request_admin', 'info@starbridgetutors.com', {
+                parentName: formData.parent_name,
+                studentName: formData.student_name,
+                email: formData.email,
+                phone: formData.phone || 'Not provided',
+                subject: formData.subject || 'Not specified',
+                message: `Grade level: ${formData.grade_level || 'Not specified'}`
+            }).catch(err => console.warn('[email] Trial notification email failed:', err));
+
             setSubmitted(true);
         } catch (err) {
             setError('Failed to schedule trial. Please try again or contact support.');

@@ -39,12 +39,21 @@ const StudentSignup = () => {
         setLoading(true);
 
         try {
-            const { error: signUpError } = await signUp(formData.email, formData.password, {
+            const { data, error: signUpError } = await signUp(formData.email, formData.password, {
                 full_name: formData.fullName,
                 grade_level: formData.gradeLevel,
                 parent_email: formData.parentEmail
             });
             if (signUpError) throw signUpError;
+
+            // If confirmation is required, Supabase returns a user but no active session
+            if (data?.user && !data?.session) {
+                navigate('/student/login', {
+                    state: { message: 'Registration successful! If email confirmation is enabled, please check your inbox before logging in.' }
+                });
+                return;
+            }
+
             navigate('/student/dashboard');
         } catch (err) {
             setError(err.message || 'Failed to create account');

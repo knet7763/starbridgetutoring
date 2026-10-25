@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { BookOpen, Mail, Lock } from 'lucide-react';
 
@@ -9,7 +9,9 @@ const StudentLogin = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+    const location = useLocation();
     const { signIn } = useAuth();
+    const infoMessage = location.state?.message;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -17,8 +19,17 @@ const StudentLogin = () => {
         setLoading(true);
 
         try {
-            const { error: signInError } = await signIn(email, password, 'student');
-            if (signInError) throw signInError;
+            const { data, error: signInError } = await signIn(email, password, 'student');
+            if (signInError) {
+                if (signInError.message?.toLowerCase().includes('email not confirmed')) {
+                    setError('Your email has not been confirmed yet. Please check your inbox or ask support to confirm your account.');
+                } else if (signInError.message?.toLowerCase().includes('invalid login credentials')) {
+                    setError('Invalid email or password. Please verify your credentials or check if your account is confirmed.');
+                } else {
+                    setError(signInError.message || 'Failed to sign in');
+                }
+                return;
+            }
             navigate('/student/dashboard');
         } catch (err) {
             setError(err.message || 'Failed to sign in');
@@ -43,6 +54,13 @@ const StudentLogin = () => {
                             Welcome back! Continue your learning journey
                         </p>
                     </div>
+
+                    {/* Info / Success Message */}
+                    {infoMessage && !error && (
+                        <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-lg text-sm">
+                            {infoMessage}
+                        </div>
+                    )}
 
                     {/* Error Message */}
                     {error && (

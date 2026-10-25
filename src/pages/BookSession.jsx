@@ -139,6 +139,17 @@ const BookSession = () => {
                 });
             }
 
+            // Send notification email to tutor (non-blocking)
+            const tutorRecipient = tutor?.email || 'info@starbridgetutors.com';
+            api.email.send('booking_created_teacher', tutorRecipient, {
+                teacherName: tutor?.name || 'Tutor',
+                studentName: student?.full_name || 'A Student',
+                date: new Date(selectedDate).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+                startTime: startTime,
+                endTime: endTime,
+                subject: tutor?.subject || 'Tutoring Session'
+            }).catch(err => console.warn('[email] Booking created email notification failed:', err));
+
             navigate('/student/dashboard');
         }
     };

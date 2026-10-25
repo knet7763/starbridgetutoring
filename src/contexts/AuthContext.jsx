@@ -25,10 +25,10 @@ export const AuthProvider = ({ children }) => {
         return role === 'teacher' || role === 'admin' ? role : null;
     };
 
-    const loadStudentProfile = async (userId, { markMissing = false } = {}) => {
+    const loadStudentProfile = async (userId, { markMissing = false, currentUser = null } = {}) => {
         console.log('[AuthContext] loadStudentProfile starting for userId:', userId);
         try {
-            const { data, error } = await supabase
+            let { data, error } = await supabase
                 .from('student_profiles')
                 .select('*')
                 .eq('id', userId)
@@ -36,6 +36,35 @@ export const AuthProvider = ({ children }) => {
 
             if (error) throw error;
             
+            // Self-healing: if no student profile in DB, auto-create using user metadata
+            if (!data) {
+                const targetUser = currentUser || (await supabase.auth.getUser())?.data?.user;
+                if (targetUser && targetUser.id === userId) {
+                    const fullName = targetUser.user_metadata?.full_name || targetUser.email?.split('@')[0] || 'Student';
+                    const gradeLevel = targetUser.user_metadata?.grade_level || 'Grade 5';
+                    const parentEmail = targetUser.user_metadata?.parent_email || targetUser.email;
+
+                    console.log('[AuthContext] Auto-creating missing student profile for:', userId);
+                    const { data: newProfile, error: upsertErr } = await supabase
+                        .from('student_profiles')
+                        .upsert({
+                            id: userId,
+                            full_name: fullName,
+                            grade_level: gradeLevel,
+                            parent_email: parentEmail
+                        })
+                        .select()
+                        .maybeSingle();
+
+                    if (!upsertErr && newProfile) {
+                        data = newProfile;
+                        console.log('[AuthContext] Successfully auto-created student profile:', newProfile);
+                    } else if (upsertErr) {
+                        console.warn('[AuthContext] Auto-create student profile note:', upsertErr.message);
+                    }
+                }
+            }
+
             if (data) {
                 console.log('[AuthContext] loadStudentProfile found student profile:', data);
                 setStudent(data);
@@ -55,56 +84,57 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const applySession = async (session) => {
+        console.log('[AuthContext] applySession starting, user:', session?.user?.email);
+        if (!session?.user) {
+            console.log('[AuthContext] applySession: no session user');
+            setUser(null);
+            setStudent(null);
+            setRole(null);
+            setProfileMissing(false);
+            Sentry.setUser(null);
+            return;
+        }
+
+        const trustedRole = getRoleFromUser(session.user);
+        const expectedRole = localStorage.getItem('sb_role');
+        console.log('[AuthContext] trustedRole:', trustedRole, 'expectedRole:', expectedRole);
+
+        setUser(session.user);
+
+        if (trustedRole) {
+            console.log('[AuthContext] applySession: trustedRole matched:', trustedRole);
+            setRole(trustedRole);
+            setStudent(null);
+            setProfileMissing(false);
+            Sentry.setUser({
+                id: session.user.id,
+                email: session.user.email,
+                role: trustedRole,
+            });
+            return;
+        }
+
+        const studentProfile = await loadStudentProfile(session.user.id, {
+            markMissing: expectedRole === 'student',
+            currentUser: session.user,
+        });
+
+        const finalRole = studentProfile ? 'student' : null;
+        console.log('[AuthContext] applySession: setting role based on studentProfile:', finalRole);
+        setRole(finalRole);
+        Sentry.setUser({
+            id: session.user.id,
+            email: session.user.email,
+            role: finalRole || 'unknown',
+        });
+    };
+
     useEffect(() => {
         if (initialized.current) return;
         initialized.current = true;
 
         let mounted = true;
-
-        const applySession = async (session) => {
-            console.log('[AuthContext] applySession starting, user:', session?.user?.email);
-            if (!session?.user) {
-                console.log('[AuthContext] applySession: no session user');
-                setUser(null);
-                setStudent(null);
-                setRole(null);
-                setProfileMissing(false);
-                Sentry.setUser(null);
-                return;
-            }
-
-            const trustedRole = getRoleFromUser(session.user);
-            const expectedRole = localStorage.getItem('sb_role');
-            console.log('[AuthContext] trustedRole:', trustedRole, 'expectedRole:', expectedRole);
-
-            setUser(session.user);
-
-            if (trustedRole) {
-                console.log('[AuthContext] applySession: trustedRole matched:', trustedRole);
-                setRole(trustedRole);
-                setStudent(null);
-                setProfileMissing(false);
-                Sentry.setUser({
-                    id: session.user.id,
-                    email: session.user.email,
-                    role: trustedRole,
-                });
-                return;
-            }
-
-            const studentProfile = await loadStudentProfile(session.user.id, {
-                markMissing: expectedRole === 'student',
-            });
-
-            const finalRole = studentProfile ? 'student' : null;
-            console.log('[AuthContext] applySession: setting role based on studentProfile:', finalRole);
-            setRole(finalRole);
-            Sentry.setUser({
-                id: session.user.id,
-                email: session.user.email,
-                role: finalRole || 'unknown',
-            });
-        };
 
         const initializeAuth = async () => {
             console.log('[AuthContext] initializeAuth starting...');
@@ -152,6 +182,10 @@ export const AuthProvider = ({ children }) => {
         if (error) {
             localStorage.removeItem('sb_role');
             return { data, error };
+        }
+
+        if (data?.session) {
+            await applySession(data.session);
         }
 
         return { data, error };

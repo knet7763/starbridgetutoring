@@ -132,7 +132,7 @@ export const api = {
             .neq('status', 'cancelled'),
         getByTutorId: (tutorId) => supabase
             .from('bookings')
-            .select('*, students:student_id(full_name)')
+            .select('*, students:student_id(full_name, parent_email)')
             .eq('tutor_id', tutorId)
             .order('booking_date', { ascending: false }),
         create: (data) => supabase.from('bookings').insert([data]),

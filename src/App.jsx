@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AsyncComponentFallback } from './components/AsyncHelpers';
@@ -65,6 +65,7 @@ function App() {
                     />
 
                     {/* Admin routes without Layout */}
+                    <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
                     <Route path="/admin/login" element={<AdminLogin />} />
                     <Route
                         path="/admin/dashboard"

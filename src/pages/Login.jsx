@@ -18,14 +18,27 @@ const Login = () => {
         setLoading(true);
 
         try {
-            const { error: signInError } = await signIn(email, password);
+            const { data, error: signInError } = await signIn(email, password, 'teacher');
             if (signInError) {
-                setError('Failed to sign in. Please check your credentials.');
-            } else {
-                navigate('/teacher/dashboard');
+                if (signInError.message?.toLowerCase().includes('email not confirmed')) {
+                    setError('Your email has not been confirmed yet. Please check your inbox or ask an admin to confirm your account.');
+                } else if (signInError.message?.toLowerCase().includes('invalid login credentials')) {
+                    setError('Invalid email or password. Please verify your credentials or check if your account is confirmed.');
+                } else {
+                    setError(signInError.message || 'Failed to sign in. Please check your credentials.');
+                }
+                return;
             }
+
+            const userRole = data?.user?.app_metadata?.role;
+            if (userRole !== 'teacher' && userRole !== 'admin') {
+                setError('Account verified, but this account is not assigned the "teacher" role. Please contact an admin to assign your role.');
+                return;
+            }
+
+            navigate('/teacher/dashboard');
         } catch (err) {
-            setError('An unexpected error occurred.');
+            setError(err.message || 'An unexpected error occurred.');
         } finally {
             setLoading(false);
         }

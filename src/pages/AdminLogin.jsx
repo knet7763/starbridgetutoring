@@ -16,13 +16,31 @@ const AdminLogin = () => {
         setError('');
         setLoading(true);
 
-        const { error } = await signIn(email, password, 'admin');
+        try {
+            const { data, error } = await signIn(email, password, 'admin');
 
-        if (error) {
-            setError(error.message);
-            setLoading(false);
-        } else {
+            if (error) {
+                if (error.message?.toLowerCase().includes('email not confirmed')) {
+                    setError('Your email has not been confirmed yet. Please confirm your email in the Supabase dashboard.');
+                } else if (error.message?.toLowerCase().includes('invalid login credentials')) {
+                    setError('Invalid email or password.');
+                } else {
+                    setError(error.message);
+                }
+                return;
+            }
+
+            const userRole = data?.user?.app_metadata?.role;
+            if (userRole !== 'admin') {
+                setError('Access denied: This account does not have administrator privileges (role="admin").');
+                return;
+            }
+
             navigate('/admin/dashboard');
+        } catch (err) {
+            setError(err.message || 'An unexpected error occurred.');
+        } finally {
+            setLoading(false);
         }
     };
 
