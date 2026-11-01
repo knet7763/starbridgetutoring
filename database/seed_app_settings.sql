@@ -36,7 +36,7 @@ ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
 -- Admin email for trial request notifications
 INSERT INTO public.app_settings (key, value)
-VALUES ('admin_email', 'admin@starbridgetutors.com')
+VALUES ('admin_email', 'knet7763@gmail.com')
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
 -- ============================================================

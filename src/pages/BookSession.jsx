@@ -140,7 +140,7 @@ const BookSession = () => {
             }
 
             // Send notification email to tutor (non-blocking)
-            const tutorRecipient = tutor?.email || 'info@starbridgetutors.com';
+            const tutorRecipient = tutor?.email || 'knet7763@gmail.com';
             api.email.send('booking_created_teacher', tutorRecipient, {
                 teacherName: tutor?.name || 'Tutor',
                 studentName: student?.full_name || 'A Student',

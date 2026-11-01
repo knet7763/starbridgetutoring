@@ -30,8 +30,9 @@ const BookTrial = () => {
             const { error: submitError } = await api.trials.create(formData);
             if (submitError) throw submitError;
 
-            // Send notification email to admin (non-blocking)
-            api.email.send('trial_request_admin', 'info@starbridgetutors.com', {
+            // Send notification email to admin and confirmation to submitter
+            const adminEmail = 'knet7763@gmail.com';
+            api.email.send('trial_request_admin', adminEmail, {
                 parentName: formData.parent_name,
                 studentName: formData.student_name,
                 email: formData.email,
