@@ -212,12 +212,12 @@ BEGIN
                 'templateId', 'trial_request_admin',
                 'to', v_admin_email,
                 'data', jsonb_build_object(
-                    'parentName', COALESCE(NEW.parent_name, NEW.name, 'Unknown'),
+                    'parentName', COALESCE(NEW.parent_name, 'Unknown'),
                     'studentName', COALESCE(NEW.student_name, 'Not provided'),
                     'email', COALESCE(NEW.email, 'Not provided'),
                     'phone', COALESCE(NEW.phone, 'Not provided'),
                     'subject', COALESCE(NEW.subject, 'Not specified'),
-                    'message', COALESCE(NEW.message, '')
+                    'message', COALESCE(NEW.grade_level, '')
                 )
             )
         );

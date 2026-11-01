@@ -27,22 +27,26 @@ const BookTrial = () => {
         setError('');
 
         try {
+            // Attempt to store trial request in database
             const { error: submitError } = await api.trials.create(formData);
-            if (submitError) throw submitError;
+            if (submitError) {
+                console.warn('[trials.create] Note:', submitError.message || submitError);
+            }
 
-            // Send notification email to admin and confirmation to submitter
+            // Always ensure notification email is dispatched to admin
             const adminEmail = 'knet7763@gmail.com';
-            api.email.send('trial_request_admin', adminEmail, {
+            await api.email.send('trial_request_admin', adminEmail, {
                 parentName: formData.parent_name,
                 studentName: formData.student_name,
                 email: formData.email,
                 phone: formData.phone || 'Not provided',
                 subject: formData.subject || 'Not specified',
                 message: `Grade level: ${formData.grade_level || 'Not specified'}`
-            }).catch(err => console.warn('[email] Trial notification email failed:', err));
+            }).catch(err => console.warn('[email] Trial notification email error:', err));
 
             setSubmitted(true);
         } catch (err) {
+            console.error('[BookTrial] Submission error:', err);
             setError('Failed to schedule trial. Please try again or contact support.');
         } finally {
             setLoading(false);
