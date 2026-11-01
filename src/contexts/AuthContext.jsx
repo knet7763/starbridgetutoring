@@ -51,7 +51,8 @@ export const AuthProvider = ({ children }) => {
                             id: userId,
                             full_name: fullName,
                             grade_level: gradeLevel,
-                            parent_email: parentEmail
+                            parent_email: parentEmail,
+                            email: targetUser.email
                         })
                         .select()
                         .maybeSingle();
@@ -102,27 +103,24 @@ export const AuthProvider = ({ children }) => {
 
         setUser(session.user);
 
-        if (trustedRole) {
-            console.log('[AuthContext] applySession: trustedRole matched:', trustedRole);
-            setRole(trustedRole);
-            setStudent(null);
-            setProfileMissing(false);
-            Sentry.setUser({
-                id: session.user.id,
-                email: session.user.email,
-                role: trustedRole,
-            });
-            return;
-        }
-
+        // Load student profile if present or if student access is expected
         const studentProfile = await loadStudentProfile(session.user.id, {
-            markMissing: expectedRole === 'student',
+            markMissing: expectedRole === 'student' && !trustedRole,
             currentUser: session.user,
         });
 
-        const finalRole = studentProfile ? 'student' : null;
-        console.log('[AuthContext] applySession: setting role based on studentProfile:', finalRole);
+        if (studentProfile) {
+            setStudent(studentProfile);
+            setProfileMissing(false);
+        } else {
+            setStudent(null);
+            setProfileMissing(expectedRole === 'student' && !trustedRole);
+        }
+
+        const finalRole = trustedRole || (studentProfile ? 'student' : null);
+        console.log('[AuthContext] applySession: finalRole resolved:', finalRole);
         setRole(finalRole);
+
         Sentry.setUser({
             id: session.user.id,
             email: session.user.email,
@@ -194,11 +192,13 @@ export const AuthProvider = ({ children }) => {
     const signUp = async (email, password, metadata = {}) => {
         localStorage.setItem('sb_role', 'student');
         const { role: _ignoredRole, ...safeMetadata } = metadata;
+        const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/student/dashboard` : undefined;
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
                 data: safeMetadata,
+                emailRedirectTo: redirectUrl,
             },
         });
         if (error) {
@@ -227,7 +227,7 @@ export const AuthProvider = ({ children }) => {
         return supabase.auth.updateUser({ password: newPassword });
     };
 
-    const isStudent = role === 'student';
+    const isStudent = role === 'student' || !!student;
     const isTeacher = role === 'teacher';
     const isAdmin = role === 'admin';
 

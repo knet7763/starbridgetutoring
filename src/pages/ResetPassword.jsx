@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import Button from '../components/Button';
 import { Lock, CheckCircle, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -13,6 +14,20 @@ const ResetPassword = () => {
     const [error, setError] = useState('');
     const { updatePassword } = useAuth();
     const navigate = useNavigate();
+
+    // Detect whether the reset was triggered from a student or teacher flow
+    // by inspecting the session's app_metadata role after the recovery token is applied.
+    const getRedirectPath = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const appRole = user?.app_metadata?.role;
+            if (appRole === 'teacher' || appRole === 'admin') return '/login';
+            // No app_metadata role means it's a student
+            return '/student/login';
+        } catch {
+            return '/student/login';
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -28,7 +43,8 @@ const ResetPassword = () => {
             const { error: updateError } = await updatePassword(password);
             if (updateError) throw updateError;
             setMessage('Password updated successfully! Redirecting to login...');
-            setTimeout(() => navigate('/login'), 3000);
+            const redirectPath = await getRedirectPath();
+            setTimeout(() => navigate(redirectPath), 3000);
         } catch (err) {
             setError(err.message || 'Failed to update password.');
         } finally {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/Button';
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
@@ -11,6 +11,9 @@ const ForgotPassword = () => {
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const { resetPasswordForEmail } = useAuth();
+    // Determine where to direct "Back" link — prefer referrer if it's a local login page
+    const referrer = typeof document !== 'undefined' ? document.referrer : '';
+    const backLink = referrer.includes('/student/login') ? '/student/login' : '/login';
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -80,7 +83,7 @@ const ForgotPassword = () => {
                 )}
 
                 <div className="text-center">
-                    <Link to="/login" className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-yellow-600 transition-colors">
+                    <Link to={backLink} className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-yellow-600 transition-colors">
                         <ArrowLeft size={16} /> Back to Login
                     </Link>
                 </div>

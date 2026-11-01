@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const ProtectedStudentRoute = ({ children }) => {
-    const { student, loading, profileMissing, signOut } = useAuth();
+    const { student, isAdmin, loading, profileMissing, signOut } = useAuth();
 
     if (loading) {
         return (
@@ -13,7 +13,7 @@ const ProtectedStudentRoute = ({ children }) => {
         );
     }
 
-    if (!student) {
+    if (!student && !isAdmin) {
         if (profileMissing) {
             return (
                 <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">

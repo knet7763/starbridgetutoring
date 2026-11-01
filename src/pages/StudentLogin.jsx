@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { BookOpen, Mail, Lock } from 'lucide-react';
 
 const StudentLogin = () => {
@@ -8,6 +9,9 @@ const StudentLogin = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [resendLoading, setResendLoading] = useState(false);
+    const [resendMessage, setResendMessage] = useState('');
+    const [showResend, setShowResend] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
     const { signIn } = useAuth();
@@ -17,12 +21,15 @@ const StudentLogin = () => {
         e.preventDefault();
         setError('');
         setLoading(true);
+        setShowResend(false);
+        setResendMessage('');
 
         try {
             const { data, error: signInError } = await signIn(email, password, 'student');
             if (signInError) {
                 if (signInError.message?.toLowerCase().includes('email not confirmed')) {
-                    setError('Your email has not been confirmed yet. Please check your inbox or ask support to confirm your account.');
+                    setError('Your email has not been confirmed yet. Please check your inbox for a confirmation link.');
+                    setShowResend(true);
                 } else if (signInError.message?.toLowerCase().includes('invalid login credentials')) {
                     setError('Invalid email or password. Please verify your credentials or check if your account is confirmed.');
                 } else {
@@ -35,6 +42,27 @@ const StudentLogin = () => {
             setError(err.message || 'Failed to sign in');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleResendConfirmation = async () => {
+        if (!email) {
+            setError('Please enter your email address above first.');
+            return;
+        }
+        setResendLoading(true);
+        setResendMessage('');
+        try {
+            const { error: resendError } = await supabase.auth.resend({
+                type: 'signup',
+                email,
+            });
+            if (resendError) throw resendError;
+            setResendMessage('Confirmation email resent! Please check your inbox.');
+        } catch (err) {
+            setResendMessage('Could not resend: ' + (err.message || 'Unknown error'));
+        } finally {
+            setResendLoading(false);
         }
     };
 
@@ -66,6 +94,21 @@ const StudentLogin = () => {
                     {error && (
                         <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                             {error}
+                            {showResend && (
+                                <div className="mt-2">
+                                    <button
+                                        type="button"
+                                        onClick={handleResendConfirmation}
+                                        disabled={resendLoading}
+                                        className="underline font-medium text-red-700 hover:text-red-900 disabled:opacity-50"
+                                    >
+                                        {resendLoading ? 'Resending...' : 'Resend confirmation email'}
+                                    </button>
+                                    {resendMessage && (
+                                        <p className="mt-1 text-green-700 text-xs font-medium">{resendMessage}</p>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -124,6 +167,11 @@ const StudentLogin = () => {
                             Don't have an account?{' '}
                             <Link to="/student/signup" className="font-medium text-primary hover:text-secondary">
                                 Sign up
+                            </Link>
+                        </p>
+                        <p className="text-sm text-gray-600">
+                            <Link to="/forgot-password" className="font-medium text-primary hover:text-secondary">
+                                Forgot password?
                             </Link>
                         </p>
                         <p className="text-sm text-gray-600">
