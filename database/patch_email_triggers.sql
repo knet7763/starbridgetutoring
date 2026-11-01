@@ -58,12 +58,18 @@ BEGIN
     END IF;
 
     -- Fetch student details
-    SELECT full_name, email INTO v_student_name, v_student_email
+    SELECT full_name, COALESCE(email, parent_email) INTO v_student_name, v_student_email
     FROM public.student_profiles WHERE id = NEW.student_id;
 
+    IF v_student_email IS NULL THEN
+        SELECT email INTO v_student_email FROM auth.users WHERE id = NEW.student_id;
+    END IF;
+
     -- Fetch tutor details
-    SELECT name INTO v_tutor_name FROM public.tutors WHERE id = NEW.tutor_id;
-    SELECT email INTO v_tutor_email FROM auth.users WHERE id = NEW.tutor_id;
+    SELECT name, email INTO v_tutor_name, v_tutor_email FROM public.tutors WHERE id = NEW.tutor_id;
+    IF v_tutor_email IS NULL THEN
+        SELECT email INTO v_tutor_email FROM auth.users WHERE id = NEW.tutor_id;
+    END IF;
 
     -- Notify teacher (booking_created_teacher)
     IF v_tutor_email IS NOT NULL AND v_supabase_url IS NOT NULL AND v_service_key IS NOT NULL THEN
@@ -126,8 +132,12 @@ BEGIN
             v_service_key := current_setting('app.settings.service_role_key', true);
         END IF;
 
-        SELECT full_name, email INTO v_student_name, v_student_email
+        SELECT full_name, COALESCE(email, parent_email) INTO v_student_name, v_student_email
         FROM public.student_profiles WHERE id = NEW.student_id;
+
+        IF v_student_email IS NULL THEN
+            SELECT email INTO v_student_email FROM auth.users WHERE id = NEW.student_id;
+        END IF;
 
         SELECT name INTO v_tutor_name FROM public.tutors WHERE id = NEW.tutor_id;
 

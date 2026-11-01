@@ -15,13 +15,19 @@ BEGIN
   -- We only want to create a student profile if they signed up through the student portal
   -- which we identify by checking if 'full_name' exists in their metadata
   IF new.raw_user_meta_data->>'full_name' IS NOT NULL THEN
-      INSERT INTO public.student_profiles (id, full_name, grade_level, parent_email)
+      INSERT INTO public.student_profiles (id, full_name, grade_level, parent_email, email)
       VALUES (
         new.id,
         new.raw_user_meta_data->>'full_name',
-        new.raw_user_meta_data->>'grade_level',
-        new.raw_user_meta_data->>'parent_email'
-      );
+        COALESCE(new.raw_user_meta_data->>'grade_level', 'Grade 5'),
+        COALESCE(new.raw_user_meta_data->>'parent_email', new.email),
+        new.email
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        full_name = EXCLUDED.full_name,
+        grade_level = COALESCE(EXCLUDED.grade_level, student_profiles.grade_level),
+        parent_email = COALESCE(EXCLUDED.parent_email, student_profiles.parent_email),
+        email = COALESCE(EXCLUDED.email, student_profiles.email);
   END IF;
   RETURN new;
 END;
