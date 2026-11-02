@@ -16,22 +16,22 @@ const AdminDashboard = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchTutors();
-        fetchLessons();
+        const loadDashboard = async () => {
+            setLoading(true);
+            await Promise.all([fetchTutors(), fetchLessons()]);
+            setLoading(false);
+        };
+        loadDashboard();
     }, []);
 
     const fetchTutors = async () => {
-        setLoading(true);
         const { data, error } = await api.tutors.getAll();
         if (!error) setTutors(data || []);
-        setLoading(false);
     };
 
     const fetchLessons = async () => {
-        setLoading(true);
         const { data, error } = await api.lessons.getAll();
         if (!error) setLessons(data || []);
-        setLoading(false);
     };
 
     const handleSignOut = async () => {

@@ -103,7 +103,21 @@ export const AuthProvider = ({ children }) => {
 
         setUser(session.user);
 
-        // Load student profile if present or if student access is expected
+        // Fast path for admin and teacher logins: do not block on student profile queries
+        if (trustedRole && expectedRole !== 'student') {
+            console.log('[AuthContext] applySession: fast path for trustedRole:', trustedRole);
+            setRole(trustedRole);
+            setStudent(null);
+            setProfileMissing(false);
+            Sentry.setUser({
+                id: session.user.id,
+                email: session.user.email,
+                role: trustedRole,
+            });
+            return;
+        }
+
+        // Only query or self-heal student profile if user is a student or accessing student view
         const studentProfile = await loadStudentProfile(session.user.id, {
             markMissing: expectedRole === 'student' && !trustedRole,
             currentUser: session.user,
