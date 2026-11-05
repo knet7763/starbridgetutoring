@@ -18,7 +18,7 @@ const Login = () => {
         setLoading(true);
 
         try {
-            const { data, error: signInError } = await signIn(email, password, 'teacher');
+            const { data, error: signInError, resolvedRole } = await signIn(email, password, 'teacher');
             if (signInError) {
                 if (signInError.message?.toLowerCase().includes('email not confirmed')) {
                     setError('Your email has not been confirmed yet. Please check your inbox or ask an admin to confirm your account.');
@@ -30,7 +30,7 @@ const Login = () => {
                 return;
             }
 
-            const userRole = data?.user?.app_metadata?.role;
+            const userRole = resolvedRole || data?.user?.app_metadata?.role;
             if (userRole !== 'teacher' && userRole !== 'admin') {
                 setError('Account verified, but this account is not assigned the "teacher" role. Please contact an admin to assign your role.');
                 return;

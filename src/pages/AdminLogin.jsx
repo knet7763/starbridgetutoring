@@ -17,7 +17,7 @@ const AdminLogin = () => {
         setLoading(true);
 
         try {
-            const { data, error } = await signIn(email, password, 'admin');
+            const { data, error, resolvedRole } = await signIn(email, password, 'admin');
 
             if (error) {
                 if (error.message?.toLowerCase().includes('email not confirmed')) {
@@ -30,7 +30,7 @@ const AdminLogin = () => {
                 return;
             }
 
-            const userRole = data?.user?.app_metadata?.role;
+            const userRole = resolvedRole || data?.user?.app_metadata?.role;
             if (userRole !== 'admin') {
                 setError('Access denied: This account does not have administrator privileges (role="admin").');
                 return;

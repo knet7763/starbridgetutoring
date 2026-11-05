@@ -9,6 +9,7 @@ const AdminTutorsTab = ({ tutors, loading, fetchTutors }) => {
     const [editingTutor, setEditingTutor] = useState(null);
     const [tutorForm, setTutorForm] = useState({
         name: '',
+        email: '',
         subject: '',
         bio: '',
         qualification: '',
@@ -20,7 +21,10 @@ const AdminTutorsTab = ({ tutors, loading, fetchTutors }) => {
         e.preventDefault();
         const tutorData = {
             ...tutorForm,
-            languages: tutorForm.languages.split(',').map(lang => lang.trim()),
+            email: tutorForm.email?.trim() || null,
+            languages: tutorForm.languages
+                ? tutorForm.languages.split(',').map(lang => lang.trim()).filter(Boolean)
+                : [],
         };
 
         if (editingTutor) {
@@ -28,12 +32,16 @@ const AdminTutorsTab = ({ tutors, loading, fetchTutors }) => {
             if (!error) {
                 fetchTutors();
                 resetTutorForm();
+            } else {
+                alert('Failed to update tutor: ' + error.message);
             }
         } else {
             const { error } = await api.tutors.create(tutorData);
             if (!error) {
                 fetchTutors();
                 resetTutorForm();
+            } else {
+                alert('Failed to create tutor: ' + error.message);
             }
         }
     };
@@ -49,13 +57,14 @@ const AdminTutorsTab = ({ tutors, loading, fetchTutors }) => {
         setEditingTutor(tutor);
         setTutorForm({
             ...tutor,
+            email: tutor.email || '',
             languages: tutor.languages?.join(', ') || '',
         });
         setShowTutorForm(true);
     };
 
     const resetTutorForm = () => {
-        setTutorForm({ name: '', subject: '', bio: '', qualification: '', image_url: '', languages: '' });
+        setTutorForm({ name: '', email: '', subject: '', bio: '', qualification: '', image_url: '', languages: '' });
         setEditingTutor(null);
         setShowTutorForm(false);
     };
@@ -81,15 +90,27 @@ const AdminTutorsTab = ({ tutors, loading, fetchTutors }) => {
                         {editingTutor ? 'Edit Tutor' : 'Add New Tutor'}
                     </h3>
                     <form onSubmit={handleTutorSubmit} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Name</label>
-                            <input
-                                type="text"
-                                required
-                                value={tutorForm.name}
-                                onChange={(e) => setTutorForm({ ...tutorForm, name: e.target.value })}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm px-3 py-2 border"
-                            />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Name</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={tutorForm.name}
+                                    onChange={(e) => setTutorForm({ ...tutorForm, name: e.target.value })}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm px-3 py-2 border"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Email (for notifications & login)</label>
+                                <input
+                                    type="email"
+                                    value={tutorForm.email || ''}
+                                    onChange={(e) => setTutorForm({ ...tutorForm, email: e.target.value })}
+                                    placeholder="tutor@starbridgetutors.com"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm px-3 py-2 border"
+                                />
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Subject</label>
@@ -173,6 +194,9 @@ const AdminTutorsTab = ({ tutors, loading, fetchTutors }) => {
                                         <div>
                                             <h3 className="text-lg font-medium text-gray-900">{tutor.name}</h3>
                                             <p className="text-sm text-gray-500">{tutor.subject}</p>
+                                            {tutor.email && (
+                                                <p className="text-xs text-primary font-medium">{tutor.email}</p>
+                                            )}
                                             <p className="text-xs text-gray-400">{tutor.qualification}</p>
                                         </div>
                                     </div>

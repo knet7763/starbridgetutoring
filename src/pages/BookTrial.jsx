@@ -33,8 +33,8 @@ const BookTrial = () => {
                 console.warn('[trials.create] Note:', submitError.message || submitError);
             }
 
-            // Always ensure notification email is dispatched to admin
-            const adminEmail = 'knet7763@gmail.com';
+            // Always ensure notification email is dispatched to the configured admin
+            const adminEmail = await api.settings.getAdminEmail();
             await api.email.send('trial_request_admin', adminEmail, {
                 parentName: formData.parent_name,
                 studentName: formData.student_name,

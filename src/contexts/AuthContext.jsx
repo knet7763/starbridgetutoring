@@ -25,6 +25,50 @@ export const AuthProvider = ({ children }) => {
         return role === 'teacher' || role === 'admin' ? role : null;
     };
 
+    const resolveStaffRole = async (sessionUser, expectedRole) => {
+        const jwtRole = getRoleFromUser(sessionUser);
+        if (jwtRole) return jwtRole;
+        if (!sessionUser?.email) return null;
+
+        const normalizedEmail = sessionUser.email.trim().toLowerCase();
+
+        // Fallback 1: Check if user matches dynamic admin_email in app_settings
+        if (expectedRole === 'admin') {
+            try {
+                const { data: adminSetting } = await supabase
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', 'admin_email')
+                    .maybeSingle();
+                const configuredAdmin = (adminSetting?.value || import.meta.env.VITE_ADMIN_EMAIL || '').trim().toLowerCase();
+                if (configuredAdmin && configuredAdmin === normalizedEmail) {
+                    return 'admin';
+                }
+            } catch (e) {
+                console.warn('[AuthContext] Admin fallback lookup error:', e);
+            }
+        }
+
+        // Fallback 2: Check if user is a registered tutor in public.tutors (by id or email)
+        if (expectedRole === 'teacher' || expectedRole === 'admin') {
+            try {
+                const { data: tutorMatch } = await supabase
+                    .from('tutors')
+                    .select('id, email')
+                    .or(`id.eq.${sessionUser.id},email.ilike.${normalizedEmail}`)
+                    .limit(1)
+                    .maybeSingle();
+                if (tutorMatch) {
+                    return 'teacher';
+                }
+            } catch (e) {
+                console.warn('[AuthContext] Tutor fallback lookup error:', e);
+            }
+        }
+
+        return null;
+    };
+
     const loadStudentProfile = async (userId, { markMissing = false, currentUser = null } = {}) => {
         console.log('[AuthContext] loadStudentProfile starting for userId:', userId);
         try {
@@ -97,8 +141,8 @@ export const AuthProvider = ({ children }) => {
             return;
         }
 
-        const trustedRole = getRoleFromUser(session.user);
         const expectedRole = localStorage.getItem('sb_role');
+        const trustedRole = await resolveStaffRole(session.user, expectedRole);
         console.log('[AuthContext] trustedRole:', trustedRole, 'expectedRole:', expectedRole);
 
         setUser(session.user);
@@ -114,7 +158,7 @@ export const AuthProvider = ({ children }) => {
                 email: session.user.email,
                 role: trustedRole,
             });
-            return;
+            return trustedRole;
         }
 
         // Only query or self-heal student profile if user is a student or accessing student view
@@ -140,6 +184,7 @@ export const AuthProvider = ({ children }) => {
             email: session.user.email,
             role: finalRole || 'unknown',
         });
+        return finalRole;
     };
 
     useEffect(() => {
@@ -196,11 +241,12 @@ export const AuthProvider = ({ children }) => {
             return { data, error };
         }
 
+        let resolvedRole = null;
         if (data?.session) {
-            await applySession(data.session);
+            resolvedRole = await applySession(data.session);
         }
 
-        return { data, error };
+        return { data, error, resolvedRole };
     };
 
     const signUp = async (email, password, metadata = {}) => {

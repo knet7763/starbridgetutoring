@@ -38,11 +38,12 @@ async function seed() {
     console.log('Inserting into tutors table...');
     const { error: tutorError } = await supabase.from('tutors').upsert({
         id: userId,
-        full_name: 'Dr. Sarah Jenkins',
+        name: 'Dr. Sarah Jenkins',
         email: email,
+        subject: 'Mathematics & Science',
+        qualification: 'Ph.D. in Mathematics Education',
         bio: 'I am a highly experienced test tutor specializing in Mathematics and Science.',
-        hourly_rate: 50.00,
-        subjects: ['Mathematics', 'Science']
+        languages: ['English', 'Arabic']
     });
 
     if (tutorError) {

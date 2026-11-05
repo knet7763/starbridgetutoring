@@ -44,6 +44,7 @@ DECLARE
     v_student_email TEXT;
     v_tutor_name    TEXT;
     v_tutor_email   TEXT;
+    v_tutor_subject TEXT;
     v_supabase_url  TEXT;
     v_service_key   TEXT;
 BEGIN
@@ -66,7 +67,7 @@ BEGIN
     END IF;
 
     -- Fetch tutor details
-    SELECT name, email INTO v_tutor_name, v_tutor_email FROM public.tutors WHERE id = NEW.tutor_id;
+    SELECT name, email, subject INTO v_tutor_name, v_tutor_email, v_tutor_subject FROM public.tutors WHERE id = NEW.tutor_id;
     IF v_tutor_email IS NULL THEN
         SELECT email INTO v_tutor_email FROM auth.users WHERE id = NEW.tutor_id;
     END IF;
@@ -88,7 +89,7 @@ BEGIN
                     'date', TO_CHAR(NEW.booking_date, 'FMDay, FMMonth DD, YYYY'),
                     'startTime', NEW.start_time,
                     'endTime', NEW.end_time,
-                    'subject', NEW.subject
+                    'subject', COALESCE(v_tutor_subject, 'Tutoring Session')
                 )
             )
         );

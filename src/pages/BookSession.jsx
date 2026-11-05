@@ -139,8 +139,9 @@ const BookSession = () => {
                 });
             }
 
-            // Send notification email to tutor (non-blocking)
-            const tutorRecipient = tutor?.email || 'knet7763@gmail.com';
+            // Send notification email to tutor (non-blocking), falling back to dynamic admin email
+            const fallbackAdminEmail = await api.settings.getAdminEmail();
+            const tutorRecipient = tutor?.email || fallbackAdminEmail;
             api.email.send('booking_created_teacher', tutorRecipient, {
                 teacherName: tutor?.name || 'Tutor',
                 studentName: student?.full_name || 'A Student',

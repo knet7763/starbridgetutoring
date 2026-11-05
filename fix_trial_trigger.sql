@@ -61,3 +61,4 @@ CREATE TRIGGER on_trial_request
     AFTER INSERT ON public.trial_requests
     FOR EACH ROW
     EXECUTE FUNCTION public.notify_trial_request();
+

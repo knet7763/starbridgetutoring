@@ -132,7 +132,7 @@ export const api = {
             .neq('status', 'cancelled'),
         getByTutorId: (tutorId) => supabase
             .from('bookings')
-            .select('*, students:student_id(full_name, parent_email)')
+            .select('*, students:student_id(full_name, parent_email, email)')
             .eq('tutor_id', tutorId)
             .order('booking_date', { ascending: false }),
         create: (data) => supabase.from('bookings').insert([data]),
@@ -355,6 +355,27 @@ The classroom whiteboard is centered on the theme **"${slideTitle || 'Interactiv
             supabase.functions.invoke('send-email', {
                 body: { templateId, to, data },
             }),
+    },
+    settings: {
+        /**
+         * Dynamically resolves the active administrator email from public.app_settings,
+         * falling back to VITE_ADMIN_EMAIL or the default admin address.
+         */
+        getAdminEmail: async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', 'admin_email')
+                    .maybeSingle();
+                if (!error && data?.value) {
+                    return data.value.trim();
+                }
+            } catch (err) {
+                console.warn('[settings.getAdminEmail] Using fallback admin email:', err);
+            }
+            return import.meta.env.VITE_ADMIN_EMAIL || 'knet7763@gmail.com';
+        },
     },
 };
 
