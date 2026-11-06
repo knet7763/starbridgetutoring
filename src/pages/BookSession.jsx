@@ -14,8 +14,10 @@ const BookSession = () => {
     const [selectedDate, setSelectedDate] = useState('');
     const [availableSlots, setAvailableSlots] = useState([]);
     const [selectedSlot, setSelectedSlot] = useState(null);
+    const [notes, setNotes] = useState('');
     const [loading, setLoading] = useState(true);
     const [bookingsubmitting, setBookingSubmitting] = useState(false);
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local Time';
 
     useEffect(() => {
         const fetchData = async () => {
@@ -118,6 +120,7 @@ const BookSession = () => {
             booking_date: selectedDate,
             start_time: startTime,
             end_time: endTime,
+            notes: notes.trim() ? `${notes.trim()} (${userTimezone})` : `Timezone: ${userTimezone}`,
             status: 'pending'
         };
 
@@ -226,14 +229,20 @@ const BookSession = () => {
 
                                 {selectedDate && (
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Available Time Slots
-                                        </label>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="block text-sm font-medium text-gray-700">
+                                                Available Time Slots
+                                            </label>
+                                            <span className="text-xs font-semibold text-primary bg-yellow-50 border border-yellow-200 px-2.5 py-0.5 rounded-full">
+                                                🌍 {userTimezone}
+                                            </span>
+                                        </div>
                                         {availableSlots.length > 0 ? (
                                             <div className="grid grid-cols-3 gap-3">
                                                 {availableSlots.map(slot => (
                                                     <button
                                                         key={slot}
+                                                        type="button"
                                                         onClick={() => setSelectedSlot(slot)}
                                                         className={`py-2 px-4 rounded-md text-sm font-medium transition-colors ${selectedSlot === slot
                                                                 ? 'bg-primary text-white shadow-md'
@@ -249,6 +258,19 @@ const BookSession = () => {
                                         )}
                                     </div>
                                 )}
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Lesson Goal / Notes for Tutor (Optional)
+                                    </label>
+                                    <textarea
+                                        rows={2}
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
+                                        placeholder="e.g., Surah Al-Mulk memorization review, Tajweed practice, or Grade 6 Fractions..."
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm p-3 border"
+                                    />
+                                </div>
 
                                 <div className="pt-6 border-t border-gray-100">
                                     <Button

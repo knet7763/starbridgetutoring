@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { Loader2, Calendar as CalendarIcon, Clock, User, Check, X, Video } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Clock, User, Check, X, Video, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+
+const buildGoogleCalendarUrl = (booking, studentName) => {
+    const dateClean = (booking.booking_date || '').replace(/-/g, '');
+    const startClean = (booking.start_time || '09:00').slice(0, 5).replace(':', '') + '00';
+    const endClean = (booking.end_time || '10:00').slice(0, 5).replace(':', '') + '00';
+    const title = encodeURIComponent(`StarBridge Tutoring Session with ${studentName}`);
+    const details = encodeURIComponent(`Join meeting at https://starbridgetutors.com/meeting/${booking.id}\nNotes: ${booking.notes || 'None'}`);
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dateClean}T${startClean}/${dateClean}T${endClean}&details=${details}`;
+};
 
 const TeacherBookingsTab = ({ user }) => {
     const navigate = useNavigate();
@@ -9,6 +18,7 @@ const TeacherBookingsTab = ({ user }) => {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
     const [actionError, setActionError] = useState(null);
+    const [reminderSentIds, setReminderSentIds] = useState({});
 
     useEffect(() => {
         if (user) {
@@ -60,6 +70,30 @@ const TeacherBookingsTab = ({ user }) => {
             await fetchBookings();
         } catch (error) {
             console.error('Error cancelling booking', error);
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleSendReminder = async (booking) => {
+        const studentEmail = booking?.students?.parent_email || booking?.students?.email;
+        if (!studentEmail) {
+            setActionError('No student email address on file for this booking.');
+            return;
+        }
+        setActionLoading(`remind-${booking.id}`);
+        setActionError(null);
+        try {
+            await api.email.send('session_reminder_student', studentEmail, {
+                studentName: booking.students?.full_name || 'Student',
+                teacherName: user?.user_metadata?.full_name || user?.email || 'Your Tutor',
+                date: new Date(booking.booking_date).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+                startTime: booking.start_time,
+            });
+            setReminderSentIds(prev => ({ ...prev, [booking.id]: true }));
+        } catch (err) {
+            console.error('Failed to send reminder:', err);
+            setActionError('Failed to send reminder email.');
         } finally {
             setActionLoading(null);
         }
@@ -137,12 +171,36 @@ const TeacherBookingsTab = ({ user }) => {
                             </>
                         )}
                         {booking.status === 'confirmed' && booking.room_url && (
-                            <button
-                                onClick={() => navigate(`/meeting/${booking.id}`)}
-                                className="px-6 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-yellow-600 flex items-center justify-center gap-2 shadow-sm"
-                            >
-                                <Video size={16} /> Join Meeting
-                            </button>
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    onClick={() => handleSendReminder(booking)}
+                                    disabled={actionLoading === `remind-${booking.id}` || reminderSentIds[booking.id]}
+                                    className="px-3.5 py-2 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-60 flex items-center justify-center gap-1.5"
+                                    title="Send 30-minute session reminder email to student/parent"
+                                >
+                                    {actionLoading === `remind-${booking.id}` ? (
+                                        <Loader2 size={14} className="animate-spin" />
+                                    ) : (
+                                        <Bell size={14} />
+                                    )}
+                                    {reminderSentIds[booking.id] ? 'Reminder Sent ✓' : 'Remind Student'}
+                                </button>
+                                <a
+                                    href={buildGoogleCalendarUrl(booking, booking.students?.full_name || 'Student')}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3.5 py-2 text-xs font-bold text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 flex items-center justify-center gap-1.5"
+                                    title="Add to Google Calendar"
+                                >
+                                    <CalendarIcon size={14} /> Calendar
+                                </a>
+                                <button
+                                    onClick={() => navigate(`/meeting/${booking.id}`)}
+                                    className="px-5 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-yellow-600 flex items-center justify-center gap-2 shadow-sm"
+                                >
+                                    <Video size={16} /> Join Meeting
+                                </button>
+                            </div>
                         )}
                     </div>
                 </div>

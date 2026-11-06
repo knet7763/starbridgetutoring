@@ -269,6 +269,14 @@ const ClassroomHost = () => {
         setShowEndSessionModal(true);
     };
 
+    const handleGenerateAISummary = () => {
+        const title = session?.lessons?.title || 'Interactive Tutoring Session';
+        const slideTypesCovered = [...new Set(slides.slice(0, currentSlideIndex + 1).map(s => s.type))].join(', ');
+        const statusText = lessonStatus === 'completed' ? 'successfully completed the entire lesson' : `completed ${progressPercent}% of the lesson`;
+        const generated = `Great session today on "${title}"! The student ${statusText} (covering ${ currentSlideIndex + 1 } of ${slides.length} interactive slides: ${slideTypesCovered || 'core concepts'}). Active participation and steady progress observed. Recommended next step: review today's key concepts for 10 minutes before our next class.`;
+        setFeedbackNotes(generated);
+    };
+
     const handleSaveReportAndEnd = async () => {
         setSavingFeedback(true);
         try {
@@ -665,7 +673,16 @@ const ClassroomHost = () => {
 
                                 {/* Feedback Notes */}
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Tutor Feedback & Notes</label>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider">Tutor Feedback & Notes</label>
+                                        <button
+                                            type="button"
+                                            onClick={handleGenerateAISummary}
+                                            className="text-xs font-bold text-yellow-400 hover:text-yellow-300 flex items-center gap-1 bg-yellow-400/10 border border-yellow-400/20 px-2.5 py-1 rounded-lg transition-colors"
+                                        >
+                                            <Sparkles size={12} /> Auto-Write AI Report
+                                        </button>
+                                    </div>
                                     <textarea
                                         value={feedbackNotes}
                                         onChange={(e) => setFeedbackNotes(e.target.value)}
