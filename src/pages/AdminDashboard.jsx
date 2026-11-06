@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, Users, FileText, LogOut, Clock } from 'lucide-react';
+import { BookOpen, Users, FileText, LogOut, Clock, Calendar } from 'lucide-react';
 import AdminTutorsTab from '../components/Admin/AdminTutorsTab';
 import AdminLessonsTab from '../components/Admin/AdminLessonsTab';
 import AdminAvailabilityTab from '../components/Admin/AdminAvailabilityTab';
+import TeacherTrialsTab from '../components/Teacher/TeacherTrialsTab';
 
 const AdminDashboard = () => {
     const { user, signOut } = useAuth();
@@ -97,6 +98,16 @@ const AdminDashboard = () => {
                             <Clock className="h-5 w-5 mr-2" />
                             Availability
                         </button>
+                        <button
+                            onClick={() => setActiveTab('trials')}
+                            className={`${activeTab === 'trials'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+                        >
+                            <Calendar className="h-5 w-5 mr-2" />
+                            Trial Requests
+                        </button>
                     </nav>
                 </div>
 
@@ -110,6 +121,9 @@ const AdminDashboard = () => {
                     )}
                     {activeTab === 'availability' && (
                         <AdminAvailabilityTab tutors={tutors} />
+                    )}
+                    {activeTab === 'trials' && (
+                        <TeacherTrialsTab />
                     )}
                 </div>
             </div>
