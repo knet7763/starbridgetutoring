@@ -58,11 +58,31 @@ export const AuthProvider = ({ children }) => {
                     .or(`id.eq.${sessionUser.id},email.ilike.${normalizedEmail}`)
                     .limit(1)
                     .maybeSingle();
-                if (tutorMatch) {
+                if (tutorMatch && expectedRole === 'teacher') {
                     return 'teacher';
                 }
             } catch (e) {
                 console.warn('[AuthContext] Tutor fallback lookup error:', e);
+            }
+        }
+
+        // Fallback 3: User created directly in Supabase Dashboard (Authentication -> Users -> Add user with Email & Password)
+        // Student signups via /student/signup always include user_metadata.full_name and a student_profiles row.
+        // Accounts created manually in Supabase Auth Dashboard have no full_name metadata.
+        if ((expectedRole === 'admin' || expectedRole === 'teacher') && !sessionUser.user_metadata?.full_name) {
+            try {
+                const { data: existingStudent } = await supabase
+                    .from('student_profiles')
+                    .select('id')
+                    .eq('id', sessionUser.id)
+                    .maybeSingle();
+                if (!existingStudent) {
+                    // Best-effort sync to auth.users.raw_app_meta_data if the helper RPC is installed
+                    supabase.rpc('claim_dashboard_staff_role', { p_role: expectedRole }).catch(() => {});
+                    return expectedRole;
+                }
+            } catch (e) {
+                return expectedRole;
             }
         }
 

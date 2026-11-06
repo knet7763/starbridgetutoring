@@ -108,7 +108,91 @@ CREATE TRIGGER on_tutor_email_sync
     FOR EACH ROW
     EXECUTE FUNCTION public.sync_tutor_email_role();
 
--- 5. View to inspect all admins and teachers in one click:
+-- 5. Auto-assign role when creating a user in Supabase Dashboard (Authentication -> Users -> Add user)
+--    - If user signed up via /student/signup (has full_name), create student_profiles row.
+--    - If user email matches public.tutors, assign role='teacher'.
+--    - Otherwise (created directly in Supabase Auth Dashboard by Email & Password), assign role='admin'!
+CREATE OR REPLACE FUNCTION public.handle_new_student()
+RETURNS trigger AS $$
+BEGIN
+  IF new.raw_user_meta_data->>'full_name' IS NOT NULL THEN
+      INSERT INTO public.student_profiles (id, full_name, grade_level, parent_email, email)
+      VALUES (
+        new.id,
+        new.raw_user_meta_data->>'full_name',
+        COALESCE(new.raw_user_meta_data->>'grade_level', 'Grade 5'),
+        COALESCE(new.raw_user_meta_data->>'parent_email', new.email),
+        new.email
+      )
+      ON CONFLICT (id) DO NOTHING;
+  ELSIF EXISTS (SELECT 1 FROM public.tutors WHERE LOWER(email) = LOWER(new.email)) THEN
+      UPDATE auth.users
+      SET raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb) || '{"role": "teacher"}'::jsonb
+      WHERE id = new.id;
+  ELSE
+      UPDATE auth.users
+      SET raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb) || '{"role": "admin"}'::jsonb
+      WHERE id = new.id;
+
+      INSERT INTO public.app_settings (key, value)
+      VALUES ('admin_email', LOWER(TRIM(new.email)))
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+  END IF;
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_student();
+
+-- 6. RPC so the frontend can auto-stamp role='admin' or 'teacher' for accounts created in Supabase Auth Dashboard
+CREATE OR REPLACE FUNCTION public.claim_dashboard_staff_role(p_role TEXT DEFAULT 'admin')
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+    v_email TEXT;
+    v_full_name TEXT;
+BEGIN
+    IF v_uid IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    IF p_role NOT IN ('admin', 'teacher') THEN
+        RAISE EXCEPTION 'Invalid staff role';
+    END IF;
+
+    -- Prevent students from claiming staff roles
+    SELECT email, raw_user_meta_data->>'full_name'
+    INTO v_email, v_full_name
+    FROM auth.users
+    WHERE id = v_uid;
+
+    IF v_full_name IS NOT NULL OR EXISTS (SELECT 1 FROM public.student_profiles WHERE id = v_uid) THEN
+        RETURN jsonb_build_object('success', false, 'reason', 'Student accounts cannot claim staff roles');
+    END IF;
+
+    UPDATE auth.users
+    SET raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb) || jsonb_build_object('role', p_role)
+    WHERE id = v_uid;
+
+    IF p_role = 'admin' AND v_email IS NOT NULL THEN
+        INSERT INTO public.app_settings (key, value)
+        VALUES ('admin_email', LOWER(TRIM(v_email)))
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+    END IF;
+
+    RETURN jsonb_build_object('success', true, 'role', p_role);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.claim_dashboard_staff_role(TEXT) TO authenticated;
+
+-- 7. View to inspect all admins and teachers in one click:
 -- SELECT * FROM public.staff_users;
 CREATE OR REPLACE VIEW public.staff_users AS
 SELECT 
@@ -119,5 +203,6 @@ SELECT
     last_sign_in_at
 FROM auth.users
 WHERE raw_app_meta_data->>'role' IN ('admin', 'teacher');
+
 
 
