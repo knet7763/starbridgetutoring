@@ -25,7 +25,7 @@ const StudentLogin = () => {
         setResendMessage('');
 
         try {
-            const { data, error: signInError } = await signIn(email, password, 'student');
+            const { error: signInError, resolvedRole } = await signIn(email, password, 'student');
             if (signInError) {
                 if (signInError.message?.toLowerCase().includes('email not confirmed')) {
                     setError('Your email has not been confirmed yet. Please check your inbox for a confirmation link.');
@@ -37,7 +37,16 @@ const StudentLogin = () => {
                 }
                 return;
             }
-            navigate('/student/dashboard');
+            if (resolvedRole === 'admin') {
+                navigate('/admin/dashboard', { replace: true });
+                return;
+            }
+            if (resolvedRole === 'teacher') {
+                navigate('/teacher/dashboard', { replace: true });
+                return;
+            }
+            const redirectTo = location.state?.from || '/student/dashboard';
+            navigate(redirectTo, { replace: true });
         } catch (err) {
             setError(err.message || 'Failed to sign in');
         } finally {

@@ -158,7 +158,7 @@ serve(async (req) => {
       return jsonResponse({ error: "Invalid LiveKit room name" }, 400);
     }
 
-    const tokenIdentity = authUser?.id || participantId;
+    const tokenIdentity = participantId || authUser?.id;
     const at = new AccessToken(apiKey, apiSecret, {
       identity: tokenIdentity,
       name: participantName,

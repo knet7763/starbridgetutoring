@@ -51,6 +51,7 @@ const TeacherBookingsTab = ({ user }) => {
                     date: new Date(booking.booking_date).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
                     startTime: booking.start_time,
                     endTime: booking.end_time,
+                    dashboardUrl: `${window.location.origin}/student/dashboard`,
                 }).catch(err => console.warn('[email] Confirmation email failed silently:', err));
             }
 
@@ -89,6 +90,7 @@ const TeacherBookingsTab = ({ user }) => {
                 teacherName: user?.user_metadata?.full_name || user?.email || 'Your Tutor',
                 date: new Date(booking.booking_date).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
                 startTime: booking.start_time,
+                dashboardUrl: `${window.location.origin}/meeting/${booking.id}`,
             });
             setReminderSentIds(prev => ({ ...prev, [booking.id]: true }));
         } catch (err) {

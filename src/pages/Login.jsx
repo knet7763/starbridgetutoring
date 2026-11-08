@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/Button';
 
@@ -11,6 +11,7 @@ const Login = () => {
 
     const { signIn } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -31,12 +32,17 @@ const Login = () => {
             }
 
             const userRole = resolvedRole || data?.user?.app_metadata?.role;
+            if (userRole === 'student') {
+                navigate('/student/dashboard', { replace: true });
+                return;
+            }
             if (userRole !== 'teacher' && userRole !== 'admin') {
                 setError('Account verified, but this account is not assigned the "teacher" role. Please contact an admin to assign your role.');
                 return;
             }
 
-            navigate('/teacher/dashboard');
+            const redirectTo = location.state?.from || '/teacher/dashboard';
+            navigate(redirectTo, { replace: true });
         } catch (err) {
             setError(err.message || 'An unexpected error occurred.');
         } finally {

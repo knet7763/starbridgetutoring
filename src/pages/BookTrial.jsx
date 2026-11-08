@@ -29,22 +29,23 @@ const BookTrial = () => {
         setError('');
 
         try {
-            // Store trial request in database (the DB trigger on_trial_request automatically emails the admin)
+            // Attempt to store trial request in database
             const { error: submitError } = await api.trials.create(formData);
             if (submitError) {
                 console.warn('[trials.create] Note:', submitError.message || submitError);
-                // Fallback: dispatch notification email from client only if DB insert did not trigger it
-                const adminEmail = await api.settings.getAdminEmail();
-                await api.email.send('trial_request_admin', adminEmail, {
-                    parentName: formData.parent_name,
-                    studentName: formData.student_name,
-                    email: formData.email,
-                    phone: formData.phone || 'Not provided',
-                    subject: formData.subject || 'Not specified',
-                    message: `Grade level: ${formData.grade_level || 'Not specified'}`,
-                    dashboardUrl: `${window.location.origin}/admin/dashboard?tab=trials`
-                }).catch(err => console.warn('[email] Trial notification email error:', err));
             }
+
+            // Always dispatch notification email to the configured admin with direct link to Trial Requests tab
+            const adminEmail = await api.settings.getAdminEmail();
+            await api.email.send('trial_request_admin', adminEmail, {
+                parentName: formData.parent_name,
+                studentName: formData.student_name,
+                email: formData.email,
+                phone: formData.phone || 'Not provided',
+                subject: formData.subject || 'Not specified',
+                message: `Grade level: ${formData.grade_level || 'Not specified'}`,
+                dashboardUrl: `${window.location.origin}/admin/dashboard?tab=trials`
+            }).catch(err => console.warn('[email] Trial notification email error:', err));
 
             setSubmitted(true);
         } catch (err) {

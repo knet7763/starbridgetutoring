@@ -44,8 +44,16 @@ export async function generateLiveKitToken(resourceId, participantName, particip
             throw new Error(`Invalid LiveKit URL: ${LIVEKIT_URL}`);
         }
 
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
         const { data: { session } } = await supabase.auth.getSession();
         const accessToken = session?.access_token;
+
+        // When joining an active_session with a valid joinCode, authenticate with the project anon key
+        // so that (1) guest students without a session are accepted by the Supabase Edge Gateway, and
+        // (2) the Edge Function preserves the explicit participantId (preventing DuplicateIdentity kicks
+        // when a teacher tests both Host and Student views in tabs of the same browser).
+        const useJoinCodeAuth = options.resourceType === 'active_session' && !!options.joinCode;
+        const bearerToken = useJoinCodeAuth ? anonKey : (accessToken || anonKey);
 
         // Call Supabase Edge Function to generate token securely
         const response = await fetch(
@@ -54,7 +62,8 @@ export async function generateLiveKitToken(resourceId, participantName, particip
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+                    ...(anonKey ? { apikey: anonKey } : {}),
+                    ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
                 },
                 body: JSON.stringify({
                     resourceId,

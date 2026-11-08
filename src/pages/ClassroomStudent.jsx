@@ -149,11 +149,12 @@ const ClassroomStudent = () => {
                         sessionStorage.setItem(`sb_participant_id_${sessionId}`, guestParticipantId);
                     }
                     const participantId = studentIdRef.current || guestParticipantId;
+                    const effectiveJoinCode = joinCode || sessionData.code;
                     generateLiveKitToken(
                         sessionData.id || sessionId,
                         guestName,
                         participantId,
-                        { resourceType: 'active_session', roomName, joinCode }
+                        { resourceType: 'active_session', roomName, joinCode: effectiveJoinCode }
                     )
                         .then(({ token, url, roomName: authorizedRoomName }) => {
                             if (!cancelled) {

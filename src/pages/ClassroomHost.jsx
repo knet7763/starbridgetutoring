@@ -162,12 +162,12 @@ const ClassroomHost = () => {
                 if (sessionData && !joinedRef.current) {
                     joinedRef.current = true;
                     const roomName = sessionData.room_url || generateRoomName(sessionId || sessionData.id || '');
-                    const participantId = sessionData.tutor_id || `host-${sessionId || sessionData.id || 'host'}`;
+                    const participantId = `host-${sessionData.tutor_id || sessionId || sessionData.id || 'teacher'}`;
                     generateLiveKitToken(
                         sessionData.id || sessionId,
                         'Teacher',
                         participantId,
-                        { resourceType: 'active_session', roomName }
+                        { resourceType: 'active_session', roomName, joinCode: sessionData.code }
                     )
                         .then(({ token, url, roomName: authorizedRoomName }) => {
                             if (!cancelled) {

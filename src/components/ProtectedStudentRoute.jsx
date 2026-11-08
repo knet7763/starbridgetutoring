@@ -1,9 +1,10 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const ProtectedStudentRoute = ({ children }) => {
-    const { student, isAdmin, loading, profileMissing, signOut } = useAuth();
+    const { student, isAdmin, isTeacher, loading, profileMissing, signOut } = useAuth();
+    const location = useLocation();
 
     if (loading) {
         return (
@@ -13,7 +14,7 @@ const ProtectedStudentRoute = ({ children }) => {
         );
     }
 
-    if (!student && !isAdmin) {
+    if (!student && !isAdmin && !isTeacher) {
         if (profileMissing) {
             return (
                 <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -25,7 +26,7 @@ const ProtectedStudentRoute = ({ children }) => {
                 </div>
             );
         }
-        return <Navigate to="/student/login" replace />;
+        return <Navigate to="/student/login" state={{ from: `${location.pathname}${location.search || ''}` }} replace />;
     }
 
     return children;

@@ -151,7 +151,8 @@ const BookSession = () => {
                 date: new Date(selectedDate).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
                 startTime: startTime,
                 endTime: endTime,
-                subject: tutor?.subject || 'Tutoring Session'
+                subject: tutor?.subject || 'Tutoring Session',
+                dashboardUrl: `${window.location.origin}/teacher/dashboard?tab=bookings`
             }).catch(err => console.warn('[email] Booking created email notification failed:', err));
 
             navigate('/student/dashboard');
