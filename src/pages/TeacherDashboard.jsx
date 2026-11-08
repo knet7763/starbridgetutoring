@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Users, BookOpen, LogOut, Loader2, Calendar, TrendingUp, Clock } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Plus, Users, BookOpen, LogOut, Loader2, Calendar, TrendingUp, Clock, Shield } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import CreateClassModal from '../components/Teacher/CreateClassModal';
@@ -11,15 +11,24 @@ import TeacherBookingsTab from '../components/Teacher/TeacherBookingsTab';
 import TeacherInsightsTab from '../components/Teacher/TeacherInsightsTab';
 import TeacherTrialsTab from '../components/Teacher/TeacherTrialsTab';
 
+const VALID_TEACHER_TABS = ['lessons', 'classes', 'bookings', 'trials', 'insights'];
+
 const TeacherDashboard = () => {
     const navigate = useNavigate();
-    const { user, signOut } = useAuth();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const { user, isAdmin, signOut } = useAuth();
     const [lessons, setLessons] = useState([]);
     const [classes, setClasses] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('lessons');
+    const initialTab = VALID_TEACHER_TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'lessons';
+    const [activeTab, setActiveTab] = useState(initialTab);
     const [showCreateClassModal, setShowCreateClassModal] = useState(false);
     const [startSessionLesson, setStartSessionLesson] = useState(null);
+
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        setSearchParams({ tab }, { replace: true });
+    };
 
     const fetchData = useCallback(async () => {
         if (!user) return;
@@ -65,6 +74,15 @@ const TeacherDashboard = () => {
                         <p className="text-lg text-gray-600 mt-1">Manage your interactive lessons and student classes.</p>
                     </div>
                     <div className="flex gap-3 items-center">
+                        {isAdmin && (
+                            <button
+                                onClick={() => navigate('/admin/dashboard')}
+                                className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-xl hover:bg-gray-800 font-bold text-sm transition-all"
+                            >
+                                <Shield size={16} className="text-primary" />
+                                Admin Panel
+                            </button>
+                        )}
                         {signOut && (
                             <button
                                 onClick={signOut}
@@ -104,7 +122,7 @@ const TeacherDashboard = () => {
                     ].map(({ key, label, icon: Icon }) => (
                         <button
                             key={key}
-                            onClick={() => setActiveTab(key)}
+                            onClick={() => handleTabChange(key)}
                             className={`py-4 px-8 font-bold text-lg border-b-4 transition-colors flex items-center gap-2 ${activeTab === key
                                 ? 'border-primary text-primary'
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'

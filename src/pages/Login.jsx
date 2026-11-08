@@ -104,8 +104,8 @@ const Login = () => {
                     </div>
                 </form>
                 <div className="text-center mt-4">
-                    <p className="text-sm text-gray-600 mb-2">Are you a student? <Link to="/student/login" className="font-medium text-primary hover:text-blue-500">Student Login</Link></p>
-                    <p className="text-sm text-gray-600">Don't have an account? <Link to="/book-trial" className="font-medium text-primary hover:text-blue-500">Sign up</Link></p>
+                    <p className="text-sm text-gray-600 mb-2">Are you a student? <Link to="/student/login" className="font-medium text-primary hover:text-blue-500">Student Login</Link> · <Link to="/student/signup" className="font-medium text-primary hover:text-blue-500">Create Student Account</Link></p>
+                    <p className="text-sm text-gray-600">New to StarBridge? <Link to="/book-trial" className="font-medium text-primary hover:text-blue-500">Book a Free Trial</Link></p>
                 </div>
             </div>
         </div>

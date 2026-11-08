@@ -1,21 +1,23 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { BookOpen, Mail, Lock, User, GraduationCap, Users } from 'lucide-react';
 
 const StudentSignup = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const prefill = location.state || {};
     const { signUp } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     const [formData, setFormData] = useState({
-        fullName: '',
-        email: '',
+        fullName: prefill.fullName || '',
+        email: prefill.email || '',
         password: '',
         confirmPassword: '',
-        gradeLevel: '',
-        parentEmail: '',
+        gradeLevel: prefill.gradeLevel || '',
+        parentEmail: prefill.parentEmail || '',
     });
 
     const handleChange = (e) => {

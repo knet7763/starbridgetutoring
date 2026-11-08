@@ -84,7 +84,7 @@ const templates: Record<string, (data: Record<string, string>) => { subject: str
             <tr><td style="padding:10px 16px;font-weight:600;color:#4C1D95;font-size:13px">Subject</td><td style="padding:10px 16px;color:#111827;font-size:14px">${d.subject || "Not specified"}</td></tr>
             <tr style="background:#EDE9FE"><td style="padding:10px 16px;font-weight:600;color:#4C1D95;font-size:13px">Message</td><td style="padding:10px 16px;color:#111827;font-size:14px">${d.message || "—"}</td></tr>
           </table>
-          <a href="${d.dashboardUrl || "https://starbridgetutors.com/admin"}" style="display:inline-block;margin-top:12px;background:#8B5CF6;color:#fff;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px">View in Admin Dashboard →</a>
+          <a href="${d.dashboardUrl || "https://starbridgetutors.com/admin/dashboard?tab=trials"}" style="display:inline-block;margin-top:12px;background:#8B5CF6;color:#fff;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px">View in Admin Dashboard →</a>
         </div>
         <div style="padding:20px 32px;background:#F9FAFB;border-top:1px solid #E5E7EB;font-size:12px;color:#9CA3AF">StarBridge Tutoring · starbridgetutors.com</div>
       </div>`,

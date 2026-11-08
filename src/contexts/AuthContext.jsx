@@ -26,14 +26,14 @@ export const AuthProvider = ({ children }) => {
     };
 
     const resolveStaffRole = async (sessionUser, expectedRole) => {
+        if (!sessionUser) return null;
         const jwtRole = getRoleFromUser(sessionUser);
-        if (jwtRole) return jwtRole;
-        if (!sessionUser?.email) return null;
+        const normalizedEmail = (sessionUser.email || '').trim().toLowerCase();
 
-        const normalizedEmail = sessionUser.email.trim().toLowerCase();
-
-        // Fallback 1: Check if user matches dynamic admin_email in app_settings
-        if (expectedRole === 'admin') {
+        // Always check if user matches dynamic admin_email in app_settings first
+        // (allows an admin who is also a tutor, or whose JWT has no role yet, to be recognized as admin)
+        if (normalizedEmail && (jwtRole === 'admin' || expectedRole === 'admin' || !jwtRole)) {
+            if (jwtRole === 'admin') return 'admin';
             try {
                 const { data: adminSetting } = await supabase
                     .from('app_settings')
@@ -49,27 +49,29 @@ export const AuthProvider = ({ children }) => {
             }
         }
 
+        if (jwtRole) return jwtRole;
+        if (!normalizedEmail) return null;
+
         // Fallback 2: Check if user is a registered tutor in public.tutors (by id or email)
-        if (expectedRole === 'teacher' || expectedRole === 'admin') {
-            try {
-                const { data: tutorMatch } = await supabase
-                    .from('tutors')
-                    .select('id, email')
-                    .or(`id.eq.${sessionUser.id},email.ilike.${normalizedEmail}`)
-                    .limit(1)
-                    .maybeSingle();
-                if (tutorMatch && expectedRole === 'teacher') {
-                    return 'teacher';
-                }
-            } catch (e) {
-                console.warn('[AuthContext] Tutor fallback lookup error:', e);
+        try {
+            const { data: tutorMatch } = await supabase
+                .from('tutors')
+                .select('id, email')
+                .or(`id.eq.${sessionUser.id},email.ilike.${normalizedEmail}`)
+                .limit(1)
+                .maybeSingle();
+            if (tutorMatch) {
+                return expectedRole === 'admin' ? 'admin' : 'teacher';
             }
+        } catch (e) {
+            console.warn('[AuthContext] Tutor fallback lookup error:', e);
         }
 
         // Fallback 3: User created directly in Supabase Dashboard (Authentication -> Users -> Add user with Email & Password)
         // Student signups via /student/signup always include user_metadata.full_name and a student_profiles row.
         // Accounts created manually in Supabase Auth Dashboard have no full_name metadata.
-        if ((expectedRole === 'admin' || expectedRole === 'teacher') && !sessionUser.user_metadata?.full_name) {
+        if (!sessionUser.user_metadata?.full_name) {
+            const fallbackRole = expectedRole === 'teacher' ? 'teacher' : 'admin';
             try {
                 const { data: existingStudent } = await supabase
                     .from('student_profiles')
@@ -77,12 +79,11 @@ export const AuthProvider = ({ children }) => {
                     .eq('id', sessionUser.id)
                     .maybeSingle();
                 if (!existingStudent) {
-                    // Best-effort sync to auth.users.raw_app_meta_data if the helper RPC is installed
-                    supabase.rpc('claim_dashboard_staff_role', { p_role: expectedRole }).catch(() => {});
-                    return expectedRole;
+                    supabase.rpc('claim_dashboard_staff_role', { p_role: fallbackRole }).catch(() => {});
+                    return fallbackRole;
                 }
-            } catch (e) {
-                return expectedRole;
+            } catch {
+                return fallbackRole;
             }
         }
 
@@ -100,11 +101,11 @@ export const AuthProvider = ({ children }) => {
 
             if (error) throw error;
             
-            // Self-healing: if no student profile in DB, auto-create using user metadata
+            // Self-healing: if no student profile in DB, auto-create ONLY if user signed up as a student (has full_name metadata)
             if (!data) {
                 const targetUser = currentUser || (await supabase.auth.getUser())?.data?.user;
-                if (targetUser && targetUser.id === userId) {
-                    const fullName = targetUser.user_metadata?.full_name || targetUser.email?.split('@')[0] || 'Student';
+                if (targetUser && targetUser.id === userId && targetUser.user_metadata?.full_name) {
+                    const fullName = targetUser.user_metadata.full_name;
                     const gradeLevel = targetUser.user_metadata?.grade_level || 'Grade 5';
                     const parentEmail = targetUser.user_metadata?.parent_email || targetUser.email;
 
@@ -167,9 +168,10 @@ export const AuthProvider = ({ children }) => {
 
         setUser(session.user);
 
-        // Fast path for admin and teacher logins: do not block on student profile queries
-        if (trustedRole && expectedRole !== 'student') {
+        // Fast path for admin and teacher accounts: always honor staff role even when opening links from email
+        if (trustedRole) {
             console.log('[AuthContext] applySession: fast path for trustedRole:', trustedRole);
+            localStorage.setItem('sb_role', trustedRole);
             setRole(trustedRole);
             setStudent(null);
             setProfileMissing(false);

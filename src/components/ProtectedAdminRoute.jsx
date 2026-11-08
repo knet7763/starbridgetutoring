@@ -1,10 +1,11 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedAdminRoute = ({ children }) => {
-    const { user, isAdmin, loading } = useAuth();
+    const { user, isAdmin, isTeacher, loading } = useAuth();
+    const location = useLocation();
 
     if (loading) {
         return (
@@ -14,8 +15,12 @@ const ProtectedAdminRoute = ({ children }) => {
         );
     }
 
+    if (user && isTeacher && !isAdmin) {
+        return <Navigate to={`/teacher/dashboard${location.search || ''}`} replace />;
+    }
+
     if (!user || !isAdmin) {
-        return <Navigate to="/admin/login" replace />;
+        return <Navigate to="/admin/login" state={{ from: `${location.pathname}${location.search || ''}` }} replace />;
     }
 
     return children;

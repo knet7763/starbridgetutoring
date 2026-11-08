@@ -65,7 +65,7 @@ function App() {
                     />
 
                     {/* Admin routes without Layout */}
-                    <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+                    <Route path="/admin" element={<Navigate to="/admin/dashboard?tab=trials" replace />} />
                     <Route path="/admin/login" element={<AdminLogin />} />
                     <Route
                         path="/admin/dashboard"

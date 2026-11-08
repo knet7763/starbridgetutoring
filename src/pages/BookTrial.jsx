@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import Button from '../components/Button';
 import { api } from '../services/api';
-import { CheckCircle, Calendar, ArrowRight } from 'lucide-react';
+import { CheckCircle, Calendar, ArrowRight, GraduationCap, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const BookTrial = () => {
+    const navigate = useNavigate();
     const [formData, setFormData] = useState({
         parent_name: '',
         student_name: '',
@@ -27,22 +29,22 @@ const BookTrial = () => {
         setError('');
 
         try {
-            // Attempt to store trial request in database
+            // Store trial request in database (the DB trigger on_trial_request automatically emails the admin)
             const { error: submitError } = await api.trials.create(formData);
             if (submitError) {
                 console.warn('[trials.create] Note:', submitError.message || submitError);
+                // Fallback: dispatch notification email from client only if DB insert did not trigger it
+                const adminEmail = await api.settings.getAdminEmail();
+                await api.email.send('trial_request_admin', adminEmail, {
+                    parentName: formData.parent_name,
+                    studentName: formData.student_name,
+                    email: formData.email,
+                    phone: formData.phone || 'Not provided',
+                    subject: formData.subject || 'Not specified',
+                    message: `Grade level: ${formData.grade_level || 'Not specified'}`,
+                    dashboardUrl: `${window.location.origin}/admin/dashboard?tab=trials`
+                }).catch(err => console.warn('[email] Trial notification email error:', err));
             }
-
-            // Always ensure notification email is dispatched to the configured admin
-            const adminEmail = await api.settings.getAdminEmail();
-            await api.email.send('trial_request_admin', adminEmail, {
-                parentName: formData.parent_name,
-                studentName: formData.student_name,
-                email: formData.email,
-                phone: formData.phone || 'Not provided',
-                subject: formData.subject || 'Not specified',
-                message: `Grade level: ${formData.grade_level || 'Not specified'}`
-            }).catch(err => console.warn('[email] Trial notification email error:', err));
 
             setSubmitted(true);
         } catch (err) {
@@ -55,22 +57,53 @@ const BookTrial = () => {
 
     if (submitted) {
         return (
-            <div className="min-h-[70vh] flex items-center justify-center bg-gray-50 py-12 px-4">
+            <div className="min-h-[75vh] flex items-center justify-center bg-gray-50 py-12 px-4">
                 <motion.div 
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="max-w-md w-full bg-white p-12 rounded-[3rem] shadow-2xl text-center border border-gray-100"
+                    className="max-w-lg w-full bg-white p-10 sm:p-12 rounded-[3rem] shadow-2xl text-center border border-gray-100"
                 >
-                    <div className="w-20 h-20 bg-green-100 text-green-600 rounded-3xl flex items-center justify-center mx-auto mb-8">
+                    <div className="w-20 h-20 bg-green-100 text-green-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
                         <CheckCircle size={40} />
                     </div>
-                    <h2 className="text-3xl font-black text-gray-900 mb-4">Request Received!</h2>
-                    <p className="text-gray-600 text-lg mb-8">
-                        Thank you for choosing StarBridge Tutoring. One of our education consultants will contact you within 24 hours to schedule your free session.
+                    <h2 className="text-3xl font-black text-gray-900 mb-3">Request Received!</h2>
+                    <p className="text-gray-600 text-base mb-8">
+                        Thank you for choosing StarBridge Tutoring, <strong>{formData.parent_name}</strong>! Your trial request for <strong>{formData.student_name}</strong> has been sent to our tutoring team. You can now set up your Student Dashboard to book sessions and join live classes:
                     </p>
-                    <Button to="/" variant="primary" className="w-full justify-center py-4">
-                        Return Home
-                    </Button>
+                    <div className="space-y-3">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/student/signup', {
+                                state: {
+                                    fullName: formData.student_name || formData.parent_name,
+                                    email: formData.email,
+                                    parentEmail: formData.email,
+                                    gradeLevel: formData.grade_level || ''
+                                }
+                            })}
+                            className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-secondary text-white font-black py-4 px-6 rounded-2xl shadow-lg shadow-primary/20 transition-all"
+                        >
+                            <GraduationCap size={20} />
+                            Create Student Account & Open Dashboard
+                            <ArrowRight size={18} />
+                        </button>
+                        <Link
+                            to="/join"
+                            className="w-full flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-bold py-3.5 px-6 rounded-2xl transition-all text-sm"
+                        >
+                            <Play size={16} className="text-primary" />
+                            Have a 6-Digit Class Code? Join Live Class
+                        </Link>
+                        <div className="pt-3 flex items-center justify-center gap-4 text-sm font-semibold text-gray-500">
+                            <Link to="/student/login" className="text-primary hover:underline">
+                                Already have an account? Sign In
+                            </Link>
+                            <span>·</span>
+                            <Link to="/" className="hover:text-gray-800">
+                                Return Home
+                            </Link>
+                        </div>
+                    </div>
                 </motion.div>
             </div>
         );

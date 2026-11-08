@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { BookOpen, Users, FileText, LogOut, Clock, Calendar } from 'lucide-react';
@@ -8,13 +8,22 @@ import AdminLessonsTab from '../components/Admin/AdminLessonsTab';
 import AdminAvailabilityTab from '../components/Admin/AdminAvailabilityTab';
 import TeacherTrialsTab from '../components/Teacher/TeacherTrialsTab';
 
+const VALID_ADMIN_TABS = ['tutors', 'lessons', 'availability', 'trials'];
+
 const AdminDashboard = () => {
     const { user, signOut } = useAuth();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState('tutors');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const initialTab = VALID_ADMIN_TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'tutors';
+    const [activeTab, setActiveTab] = useState(initialTab);
     const [tutors, setTutors] = useState([]);
     const [lessons, setLessons] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        setSearchParams({ tab }, { replace: true });
+    };
 
     useEffect(() => {
         const loadDashboard = async () => {
@@ -51,6 +60,12 @@ const AdminDashboard = () => {
                             <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
                         </div>
                         <div className="flex items-center space-x-4">
+                            <button
+                                onClick={() => navigate('/teacher/dashboard')}
+                                className="inline-flex items-center px-4 py-2 border border-primary/30 rounded-md text-sm font-bold text-primary bg-primary/5 hover:bg-primary/10 transition-colors"
+                            >
+                                Teacher Portal
+                            </button>
                             <span className="text-sm text-gray-600">{user?.email}</span>
                             <button
                                 onClick={handleSignOut}
@@ -69,7 +84,7 @@ const AdminDashboard = () => {
                 <div className="border-b border-gray-200">
                     <nav className="-mb-px flex space-x-8">
                         <button
-                            onClick={() => setActiveTab('tutors')}
+                            onClick={() => handleTabChange('tutors')}
                             className={`${activeTab === 'tutors'
                                 ? 'border-primary text-primary'
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -79,7 +94,7 @@ const AdminDashboard = () => {
                             Tutors ({tutors.length})
                         </button>
                         <button
-                            onClick={() => setActiveTab('lessons')}
+                            onClick={() => handleTabChange('lessons')}
                             className={`${activeTab === 'lessons'
                                 ? 'border-primary text-primary'
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -89,7 +104,7 @@ const AdminDashboard = () => {
                             Lessons ({lessons.length})
                         </button>
                         <button
-                            onClick={() => setActiveTab('availability')}
+                            onClick={() => handleTabChange('availability')}
                             className={`${activeTab === 'availability'
                                 ? 'border-primary text-primary'
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -99,7 +114,7 @@ const AdminDashboard = () => {
                             Availability
                         </button>
                         <button
-                            onClick={() => setActiveTab('trials')}
+                            onClick={() => handleTabChange('trials')}
                             className={`${activeTab === 'trials'
                                 ? 'border-primary text-primary'
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'

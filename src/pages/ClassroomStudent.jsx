@@ -82,10 +82,16 @@ const ClassroomStudent = () => {
         localTracks,
         isFallback,
         switchToFallback,
+        retryLiveKit,
     } = useVideoRoom();
 
+    const studentIdRef = useRef(student?.id);
+    useEffect(() => {
+        studentIdRef.current = student?.id;
+    }, [student?.id]);
+
     // Heartbeat sender — broadcasts student presence and status to teacher
-    // Uses starsRef so the interval always reads the latest star count
+    // Uses refs so the interval never causes the classroom or video room effect to re-run
     const sendHeartbeat = useCallback((sessionChannel, currentSlide) => {
         if (!sessionChannel) return;
         sessionChannel.send({
@@ -93,15 +99,17 @@ const ClassroomStudent = () => {
             event: 'student_heartbeat',
             payload: {
                 name: guestName,
-                studentId: student?.id || 'guest',
+                studentId: studentIdRef.current || 'guest',
                 stars: starsRef.current,
                 currentSlideType: currentSlide?.type || 'unknown',
                 timestamp: Date.now(),
             }
         }).catch(() => {}); // silent failure is fine
-    }, [guestName, student?.id]);
+    }, [guestName]);
 
     useEffect(() => {
+        if (!sessionId) return;
+        let cancelled = false;
         let channel;
         let sessionChannel;
 
@@ -109,12 +117,14 @@ const ClassroomStudent = () => {
             try {
                 const { data: sessionData, error: sessionError } = await api.sessions.getActiveById(sessionId);
                 if (sessionError) throw sessionError;
+                if (cancelled) return;
 
                 setSession({
                     id: sessionId,
-                    title: sessionData.lessons.title,
+                    title: sessionData.lessons?.title || 'Interactive Session',
                     teacher_name: 'Teacher',
-                    lesson_id: sessionData.lesson_id
+                    lesson_id: sessionData.lesson_id,
+                    room_url: sessionData.room_url,
                 });
 
                 currentSlideIdRef.current = sessionData.current_slide_id;
@@ -122,21 +132,38 @@ const ClassroomStudent = () => {
 
                 const { data: slidesData, error: slidesError } = await api.slides.getByLessonId(sessionData.lesson_id);
                 if (slidesError) throw slidesError;
+                if (cancelled) return;
                 slidesRef.current = slidesData || [];
                 setSlides(slidesData || []);
 
-                // Join LiveKit — only once
+                // Immediately show the classroom UI (< 500ms) while video connects in the background
+                setLoading(false);
+
+                // Join LiveKit asynchronously in the background without blocking classroom render
                 if (!joinedRef.current) {
                     joinedRef.current = true;
                     const roomName = sessionData.room_url || generateRoomName(sessionId || sessionData.id || '');
-                    const participantId = student?.id || `guest-${Date.now()}`;
-                    const { token, url, roomName: authorizedRoomName } = await generateLiveKitToken(
+                    let guestParticipantId = sessionStorage.getItem(`sb_participant_id_${sessionId}`);
+                    if (!guestParticipantId) {
+                        guestParticipantId = `guest-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+                        sessionStorage.setItem(`sb_participant_id_${sessionId}`, guestParticipantId);
+                    }
+                    const participantId = studentIdRef.current || guestParticipantId;
+                    generateLiveKitToken(
                         sessionData.id || sessionId,
                         guestName,
                         participantId,
                         { resourceType: 'active_session', roomName, joinCode }
-                    );
-                    await joinRoom(url, token, authorizedRoomName || roomName, guestName);
+                    )
+                        .then(({ token, url, roomName: authorizedRoomName }) => {
+                            if (!cancelled) {
+                                return joinRoom(url, token, authorizedRoomName || roomName, guestName);
+                            }
+                        })
+                        .catch((err) => {
+                            console.warn('[ClassroomStudent] LiveKit token/join warning:', err);
+                            joinedRef.current = false;
+                        });
                 }
 
                 // Subscribe to session control channel (slide changes, collab mode, session end)
@@ -177,22 +204,30 @@ const ClassroomStudent = () => {
 
             } catch (error) {
                 console.error('Error joining session:', error);
-                setRoomError(`Failed to join classroom: ${error.message}`);
-            } finally {
-                setLoading(false);
+                if (!cancelled) {
+                    setRoomError(`Failed to join classroom: ${error.message}`);
+                    setLoading(false);
+                }
             }
         };
 
-        if (!sessionId) return;
         initClassroom();
 
         return () => {
+            cancelled = true;
             if (channel) supabase.removeChannel(channel);
             if (sessionChannel) supabase.removeChannel(sessionChannel);
             if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
+        };
+    }, [sessionId, guestName, joinCode, joinRoom, sendHeartbeat]);
+
+    // Disconnect LiveKit only when leaving/unmounting the classroom page
+    useEffect(() => {
+        return () => {
+            joinedRef.current = false;
             leaveRoom();
         };
-    }, [sessionId, guestName, joinCode, student?.id, joinRoom, leaveRoom]);
+    }, [leaveRoom]);
 
     // Award star with confetti + chime
     // Also keeps starsRef in sync so heartbeat always reads fresh value
@@ -519,9 +554,10 @@ const ClassroomStudent = () => {
                         participants={participants} 
                         isFallback={isFallback}
                         isConnecting={isConnecting}
-                        roomName={session?.id ? generateRoomName(session.id) : (sessionId || '')}
+                        roomName={session?.room_url || (session?.id ? generateRoomName(session.id) : (sessionId || ''))}
                         displayName={guestName}
                         onSwitchFallback={switchToFallback}
+                        onRetryLiveKit={retryLiveKit}
                     />
                 )}
 

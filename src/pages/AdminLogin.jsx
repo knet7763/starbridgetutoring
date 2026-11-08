@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/Button';
 
@@ -10,6 +10,7 @@ const AdminLogin = () => {
     const [loading, setLoading] = useState(false);
     const { signIn } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -31,12 +32,17 @@ const AdminLogin = () => {
             }
 
             const userRole = resolvedRole || data?.user?.app_metadata?.role;
+            if (userRole === 'teacher') {
+                navigate('/teacher/dashboard');
+                return;
+            }
             if (userRole !== 'admin') {
                 setError('Access denied: This account does not have administrator privileges (role="admin").');
                 return;
             }
 
-            navigate('/admin/dashboard');
+            const redirectTo = location.state?.from || '/admin/dashboard';
+            navigate(redirectTo, { replace: true });
         } catch (err) {
             setError(err.message || 'An unexpected error occurred.');
         } finally {

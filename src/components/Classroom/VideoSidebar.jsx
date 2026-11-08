@@ -1,5 +1,32 @@
 import React, { useEffect, useRef } from 'react';
-import { MicOff, CameraOff, User } from 'lucide-react';
+import { MicOff, CameraOff, User, RefreshCw } from 'lucide-react';
+
+export const extractParticipantTracks = (participant) => {
+    const videoTracks = [];
+    const audioTracks = [];
+    if (!participant) return { videoTracks, audioTracks };
+
+    const videoMap = participant.videoTrackPublications || participant.videoTracks;
+    const audioMap = participant.audioTrackPublications || participant.audioTracks;
+
+    if (videoMap && typeof videoMap.forEach === 'function') {
+        videoMap.forEach((pub) => {
+            if (pub?.track && !pub.isMuted) {
+                videoTracks.push(pub.track);
+            }
+        });
+    }
+
+    if (audioMap && typeof audioMap.forEach === 'function') {
+        audioMap.forEach((pub) => {
+            if (pub?.track && !pub.isMuted) {
+                audioTracks.push(pub.track);
+            }
+        });
+    }
+
+    return { videoTracks, audioTracks };
+};
 
 export const TrackRenderer = ({ track, isVideo, isLocal }) => {
     const ref = useRef(null);
@@ -9,6 +36,9 @@ export const TrackRenderer = ({ track, isVideo, isLocal }) => {
         if (!element || !track) return;
 
         track.attach(element);
+        if (typeof element.play === 'function') {
+            element.play().catch(() => {});
+        }
 
         return () => {
             track.detach(element);
@@ -38,23 +68,7 @@ export const TrackRenderer = ({ track, isVideo, isLocal }) => {
 
 const ParticipantTile = ({ participant, isLocal }) => {
     const displayName = participant?.name || participant?.identity || 'Participant';
-
-    // Extract active tracks from participant maps
-    const videoTracks = [];
-    const audioTracks = [];
-
-    if (participant) {
-        participant.videoTracks.forEach((pub) => {
-            if (pub.track) {
-                videoTracks.push(pub.track);
-            }
-        });
-        participant.audioTracks.forEach((pub) => {
-            if (pub.track) {
-                audioTracks.push(pub.track);
-            }
-        });
-    }
+    const { videoTracks, audioTracks } = extractParticipantTracks(participant);
 
     const hasVideo = videoTracks.length > 0;
     const hasAudio = audioTracks.length > 0;
@@ -128,7 +142,8 @@ const VideoSidebar = ({
     isConnecting,
     roomName, 
     displayName, 
-    onSwitchFallback, 
+    onSwitchFallback,
+    onRetryLiveKit,
     className = "w-72 border-l border-gray-800" 
 }) => {
     if (!room && !isFallback && !isConnecting) return null;
@@ -138,13 +153,15 @@ const VideoSidebar = ({
             <div className={`${className} flex-shrink-0 bg-gray-950 flex flex-col h-full p-6 gap-4 z-50 justify-center items-center`}>
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-yellow-400 mb-2"></div>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-black text-center">Connecting to video room...</p>
-                <p className="text-[11px] text-gray-500 text-center max-w-[200px]">Waiting for peer channels to establish</p>
-                <button
-                    onClick={onSwitchFallback}
-                    className="mt-6 py-2 px-4 bg-red-950/20 hover:bg-red-950/40 text-red-400 border border-red-900/30 rounded-xl text-[10px] font-black tracking-wider uppercase transition-all"
-                >
-                    Use Backup Video (Jitsi)
-                </button>
+                <p className="text-[11px] text-gray-500 text-center max-w-[200px]">Establishing fast peer channels</p>
+                {onSwitchFallback && (
+                    <button
+                        onClick={onSwitchFallback}
+                        className="mt-6 py-2 px-4 bg-red-950/20 hover:bg-red-950/40 text-red-400 border border-red-900/30 rounded-xl text-[10px] font-black tracking-wider uppercase transition-all"
+                    >
+                        Use Backup Video (Jitsi)
+                    </button>
+                )}
             </div>
         );
     }
@@ -157,10 +174,19 @@ const VideoSidebar = ({
                         <p className="text-xs uppercase tracking-[0.25em] text-red-500 font-black">Video Fallback</p>
                         <p className="text-sm font-semibold text-gray-300">Jitsi Backup Server</p>
                     </div>
+                    {onRetryLiveKit && (
+                        <button
+                            onClick={onRetryLiveKit}
+                            className="p-2 bg-gray-800 hover:bg-gray-700 text-yellow-400 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                            title="Reconnect to primary LiveKit video server"
+                        >
+                            <RefreshCw size={12} /> LiveKit
+                        </button>
+                    )}
                 </div>
                 <div className="flex-1 w-full rounded-2xl overflow-hidden border border-gray-850 shadow-2xl relative bg-gray-900">
                     <iframe
-                        src={`https://meet.jit.si/starbridge-${roomName}#userInfo.displayName="${displayName}"&config.prejoinPageEnabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&interfaceConfig.TOOLBAR_BUTTONS=["microphone","camera","chat","tileview"]`}
+                        src={`https://meet.jit.si/starbridge-${roomName || 'classroom'}#userInfo.displayName="${encodeURIComponent(displayName || 'Participant')}"&config.prejoinPageEnabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&interfaceConfig.TOOLBAR_BUTTONS=["microphone","camera","chat","tileview"]`}
                         allow="camera; microphone; fullscreen; display-capture; autoplay"
                         className="absolute inset-0 w-full h-full border-none rounded-2xl bg-gray-900"
                     ></iframe>

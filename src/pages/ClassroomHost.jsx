@@ -127,49 +127,64 @@ const ClassroomHost = () => {
         localTracks,
         isFallback,
         switchToFallback,
+        retryLiveKit,
     } = useVideoRoom();
+    const drawingSaveTimeoutRef = useRef(null);
 
     useEffect(() => {
         if (!sessionId) return;
+        let cancelled = false;
         
         const fetchSessionData = async () => {
             try {
-                // Fetch session
+                // Fetch session first
                 const { data: sessionData, error: sessionError } = await api.sessions.getActiveById(sessionId);
 
                 if (sessionError) throw sessionError;
+                if (cancelled) return;
                 setSession(sessionData);
 
-                // Join the LiveKit room as soon as we have session data — only once
+                // Fetch slides & participants in parallel so classroom stage renders immediately (< 500ms)
+                const [slidesRes, participantsRes] = await Promise.all([
+                    api.slides.getByLessonId(sessionData.lesson_id),
+                    api.participants.getBySessionId(sessionId),
+                ]);
+
+                if (slidesRes.error) throw slidesRes.error;
+                if (cancelled) return;
+                setSlides(slidesRes.data || []);
+                setSessionParticipants(participantsRes.data || []);
+
+                // Immediately unblock UI so teacher sees classroom board right away
+                setLoading(false);
+
+                // Connect LiveKit asynchronously in the background without blocking classroom render
                 if (sessionData && !joinedRef.current) {
                     joinedRef.current = true;
                     const roomName = sessionData.room_url || generateRoomName(sessionId || sessionData.id || '');
                     const participantId = sessionData.tutor_id || `host-${sessionId || sessionData.id || 'host'}`;
-                    const { token, url, roomName: authorizedRoomName } = await generateLiveKitToken(
+                    generateLiveKitToken(
                         sessionData.id || sessionId,
                         'Teacher',
                         participantId,
                         { resourceType: 'active_session', roomName }
-                    );
-                    await joinRoom(url, token, authorizedRoomName || roomName, 'Teacher');
+                    )
+                        .then(({ token, url, roomName: authorizedRoomName }) => {
+                            if (!cancelled) {
+                                return joinRoom(url, token, authorizedRoomName || roomName, 'Teacher');
+                            }
+                        })
+                        .catch((err) => {
+                            console.warn('[ClassroomHost] LiveKit token/join warning:', err);
+                            joinedRef.current = false;
+                        });
                 }
-
-                // Fetch slides
-                const { data: slidesData, error: slidesError } = await api.slides.getByLessonId(sessionData.lesson_id);
-
-                if (slidesError) throw slidesError;
-                setSlides(slidesData || []);
-
-                // Fetch existing participants
-                const { data: participantsData } = await api.participants.getBySessionId(sessionId);
-
-                setSessionParticipants(participantsData || []);
-
             } catch (error) {
                 console.error('Error loading session:', error);
-                setRoomError(`Failed to load classroom: ${error.message}`);
-            } finally {
-                setLoading(false);
+                if (!cancelled) {
+                    setRoomError(`Failed to load classroom: ${error.message}`);
+                    setLoading(false);
+                }
             }
         };
 
@@ -197,6 +212,7 @@ const ClassroomHost = () => {
             .subscribe();
 
         return () => {
+            cancelled = true;
             supabase.removeChannel(participantChannel);
         };
     }, [sessionId, joinRoom]);
@@ -237,6 +253,8 @@ const ClassroomHost = () => {
 
     useEffect(() => {
         return () => {
+            joinedRef.current = false;
+            if (drawingSaveTimeoutRef.current) clearTimeout(drawingSaveTimeoutRef.current);
             leaveRoom();
         };
     }, [leaveRoom]);
@@ -427,6 +445,7 @@ const ClassroomHost = () => {
                             roomName={session?.room_url || (session?.id ? generateRoomName(session.id) : '')}
                             displayName="Teacher"
                             onSwitchFallback={switchToFallback}
+                            onRetryLiveKit={retryLiveKit}
                         />
                     )}
 
@@ -454,15 +473,15 @@ const ClassroomHost = () => {
                                 backgroundImage={currentSlide?.type === 'image' ? currentSlide.content?.url : null}
                                 initialSnapshot={currentSlide?.drawing_data}
                                 onChange={(snapshot) => {
-                                    api.slides.updateDrawing(currentSlide.id, snapshot).then(({ error }) => {
-                                        if (error) console.error("Error saving whiteboard:", error);
-                                        setSlides(prev => {
-                                            const newSlides = [...prev];
-                                            const idx = newSlides.findIndex(s => s.id === currentSlide.id);
-                                            if (idx !== -1) newSlides[idx].drawing_data = snapshot;
-                                            return newSlides;
+                                    if (!currentSlide?.id) return;
+                                    currentSlide.drawing_data = snapshot;
+                                    if (drawingSaveTimeoutRef.current) clearTimeout(drawingSaveTimeoutRef.current);
+                                    const targetSlideId = currentSlide.id;
+                                    drawingSaveTimeoutRef.current = setTimeout(() => {
+                                        api.slides.updateDrawing(targetSlideId, snapshot).then(({ error }) => {
+                                            if (error) console.error("Error saving whiteboard:", error);
                                         });
-                                    });
+                                    }, 800);
                                 }}
                                 className="w-full h-full"
                             />

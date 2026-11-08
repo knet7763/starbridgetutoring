@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { DataPacket_Kind } from 'livekit-client';
 import Board from '../components/Whiteboard/Board';
-import VideoSidebar, { TrackRenderer } from '../components/Classroom/VideoSidebar';
+import VideoSidebar, { TrackRenderer, extractParticipantTracks } from '../components/Classroom/VideoSidebar';
 import ChatPanel from '../components/Classroom/ChatPanel';
 import { useVideoRoom } from '../hooks/useVideoRoom';
 import { generateLiveKitToken, generateRoomName } from '../services/videoService';
@@ -26,22 +26,7 @@ import { generateLiveKitToken, generateRoomName } from '../services/videoService
 // Grid tile component for full-screen participant rendering
 const ParticipantGridTile = ({ item }) => {
     const { participant, isLocal, displayName } = item;
-
-    // Extract tracks
-    const videoTracks = [];
-    const audioTracks = [];
-    if (participant) {
-        participant.videoTracks.forEach((pub) => {
-            if (pub.track) {
-                videoTracks.push(pub.track);
-            }
-        });
-        participant.audioTracks.forEach((pub) => {
-            if (pub.track) {
-                audioTracks.push(pub.track);
-            }
-        });
-    }
+    const { videoTracks, audioTracks } = extractParticipantTracks(participant);
 
     const hasVideo = videoTracks.length > 0;
     const hasAudio = audioTracks.length > 0;
@@ -120,6 +105,9 @@ const MeetingRoom = () => {
         toggleScreenShare,
         isScreenSharing,
         localTracks,
+        isFallback,
+        switchToFallback,
+        retryLiveKit,
     } = useVideoRoom();
 
     const displayName = user?.user_metadata?.full_name || student?.full_name || user?.email || 'Guest';
@@ -201,6 +189,7 @@ const MeetingRoom = () => {
 
     useEffect(() => {
         return () => {
+            joinedRef.current = false;
             leaveRoom();
         };
     }, [leaveRoom]);
@@ -386,17 +375,45 @@ const MeetingRoom = () => {
                         {activeTool === 'video' ? (
                             /* Video Grid View */
                             <div className="w-full h-full flex flex-col md:flex-row gap-6 p-6 items-stretch justify-center">
-                                {isConnecting ? (
+                                {isFallback ? (
+                                    <div className="flex-1 h-full rounded-3xl overflow-hidden border border-white/10 shadow-2xl relative bg-gray-900">
+                                        <iframe
+                                            src={`https://meet.jit.si/starbridge-${booking?.room_url || generateRoomName(booking?.id || bookingId || 'meeting')}#userInfo.displayName="${encodeURIComponent(displayName)}"&config.prejoinPageEnabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&interfaceConfig.TOOLBAR_BUTTONS=["microphone","camera","chat","tileview"]`}
+                                            allow="camera; microphone; fullscreen; display-capture; autoplay"
+                                            className="w-full h-full border-none bg-gray-900"
+                                        />
+                                    </div>
+                                ) : isConnecting ? (
                                     <div className="flex-1 flex flex-col items-center justify-center text-center">
                                         <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
                                         <h2 className="text-2xl font-black text-white mb-2">Connecting to LiveKit</h2>
                                         <p className="text-gray-400 max-w-md">Camera and microphone permissions may be requested by your browser.</p>
+                                        <button
+                                            onClick={switchToFallback}
+                                            className="mt-6 py-2 px-4 bg-red-950/30 hover:bg-red-950/50 text-red-400 border border-red-900/40 rounded-xl text-xs font-bold transition-all"
+                                        >
+                                            Switch to Backup Video Server
+                                        </button>
                                     </div>
-                                ) : liveKitError ? (
+                                ) : liveKitError && allParticipants.length === 0 ? (
                                     <div className="flex-1 flex flex-col items-center justify-center text-center">
                                         <VideoOff className="w-14 h-14 text-red-400 mb-4" />
                                         <h2 className="text-2xl font-black text-white mb-2">Video Connection Failed</h2>
                                         <p className="text-gray-400 max-w-md">{liveKitError}</p>
+                                        <div className="flex gap-3 mt-6">
+                                            <button
+                                                onClick={retryLiveKit}
+                                                className="py-2.5 px-5 bg-primary text-gray-950 rounded-xl text-xs font-black uppercase tracking-wider"
+                                            >
+                                                Retry LiveKit
+                                            </button>
+                                            <button
+                                                onClick={switchToFallback}
+                                                className="py-2.5 px-5 bg-gray-800 text-white rounded-xl text-xs font-bold"
+                                            >
+                                                Use Backup Server
+                                            </button>
+                                        </div>
                                     </div>
                                 ) : allParticipants.length > 0 ? (
                                     allParticipants.map((item) => (
@@ -418,6 +435,12 @@ const MeetingRoom = () => {
                             <VideoSidebar
                                 room={room}
                                 participants={participants}
+                                isFallback={isFallback}
+                                isConnecting={isConnecting}
+                                roomName={booking?.room_url || generateRoomName(booking?.id || bookingId || 'meeting')}
+                                displayName={displayName}
+                                onSwitchFallback={switchToFallback}
+                                onRetryLiveKit={retryLiveKit}
                                 className="w-full h-full border-none bg-transparent"
                             />
                         )}
