@@ -63,6 +63,14 @@ function App() {
                             </ProtectedStudentRoute>
                         }
                     />
+                    <Route
+                        path="/book/:tutorId"
+                        element={
+                            <ProtectedStudentRoute>
+                                <Layout><BookSession /></Layout>
+                            </ProtectedStudentRoute>
+                        }
+                    />
 
                     {/* Admin routes without Layout */}
                     <Route path="/admin" element={<Navigate to="/admin/dashboard?tab=trials" replace />} />

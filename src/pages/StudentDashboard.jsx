@@ -138,7 +138,11 @@ const StudentDashboard = () => {
                                 <p className="text-sm text-gray-600">Welcome back, {student?.full_name}!</p>
                             </div>
                         </div>
-                        <div className="flex items-center space-x-3">
+                        <div className="flex flex-wrap items-center gap-3">
+                            <Button to="/join" variant="primary">
+                                <Video className="h-4 w-4 mr-1.5" />
+                                Join Live Class
+                            </Button>
                             <button
                                 onClick={() => setShowCertificate(true)}
                                 className="inline-flex items-center px-4 py-2 border border-yellow-300 rounded-md text-sm font-bold text-yellow-800 bg-yellow-50 hover:bg-yellow-100 transition-colors"
@@ -345,7 +349,7 @@ const StudentDashboard = () => {
                                                         </div>
                                                     </div>
                                                     <div className="flex flex-col items-end">
-                                                        <Button to={`/book/${enrollment.tutor_id}`} variant="secondary" className="text-xs px-3 py-1">
+                                                        <Button to={`/book-session/${enrollment.tutor_id}`} variant="secondary" className="text-xs px-3 py-1">
                                                             Book Session
                                                         </Button>
                                                     </div>

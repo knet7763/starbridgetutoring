@@ -1,16 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, BookOpen, User } from 'lucide-react';
 import { api } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const JoinClass = () => {
     const navigate = useNavigate();
+    const { student } = useAuth();
     const [step, setStep] = useState('code'); // 'code' | 'name'
     const [code, setCode] = useState('');
-    const [name, setName] = useState('');
+    const [name, setName] = useState(student?.full_name || '');
     const [sessionId, setSessionId] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (student?.full_name && !name) {
+            setName(student.full_name);
+        }
+    }, [student?.full_name, name]);
 
     // Step 1: validate code
     const handleCodeSubmit = async (e) => {
@@ -46,7 +54,11 @@ const JoinClass = () => {
         }
         setLoading(true);
         try {
-            const { error: participantError } = await api.participants.join({ session_id: sessionId, guest_name: name.trim() });
+            const { error: participantError } = await api.participants.join({
+                session_id: sessionId,
+                guest_name: name.trim(),
+                ...(student?.id ? { student_id: student.id } : {}),
+            });
 
             // Non-fatal: participant insert may fail if RLS is strict; still allow entry
             if (participantError) {
