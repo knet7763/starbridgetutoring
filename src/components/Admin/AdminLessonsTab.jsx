@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
-import { Plus, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, Play, Layers } from 'lucide-react';
 import Button from '../Button';
 import FileUpload from '../FileUpload';
+import StartSessionModal from '../Teacher/StartSessionModal';
 
 const AdminLessonsTab = ({ lessons, loading, fetchLessons }) => {
+    const navigate = useNavigate();
     const [showLessonForm, setShowLessonForm] = useState(false);
     const [editingLesson, setEditingLesson] = useState(null);
+    const [startSessionLesson, setStartSessionLesson] = useState(null);
     const [lessonForm, setLessonForm] = useState({
         title: '',
         description: '',
@@ -65,16 +69,32 @@ const AdminLessonsTab = ({ lessons, loading, fetchLessons }) => {
 
     return (
         <div>
-            <div className="flex justify-between items-center mb-6">
+            {startSessionLesson && (
+                <StartSessionModal
+                    lesson={startSessionLesson}
+                    onClose={() => setStartSessionLesson(null)}
+                />
+            )}
+
+            <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Manage Lessons</h2>
-                <Button
-                    onClick={() => setShowLessonForm(!showLessonForm)}
-                    variant="primary"
-                    className="flex items-center"
-                >
-                    <Plus className="h-5 w-5 mr-2" />
-                    Add Lesson
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={() => navigate(`/teacher/lesson/new-${Date.now()}`)}
+                        className="inline-flex items-center px-4 py-2 rounded-md text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                    >
+                        <Layers className="h-4 w-4 mr-2" />
+                        Interactive Slide Builder
+                    </button>
+                    <Button
+                        onClick={() => setShowLessonForm(!showLessonForm)}
+                        variant="primary"
+                        className="flex items-center"
+                    >
+                        <Plus className="h-5 w-5 mr-2" />
+                        Add Lesson Metadata
+                    </Button>
+                </div>
             </div>
 
             {/* Lesson Form */}
@@ -189,16 +209,34 @@ const AdminLessonsTab = ({ lessons, loading, fetchLessons }) => {
                                             <p className="text-xs text-gray-400">{lesson.grade_level}</p>
                                         )}
                                     </div>
-                                    <div className="flex space-x-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <button
+                                            onClick={() => setStartSessionLesson(lesson)}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                                            title="Launch Live Classroom"
+                                        >
+                                            <Play className="h-3.5 w-3.5" fill="currentColor" />
+                                            Start Live
+                                        </button>
+                                        <button
+                                            onClick={() => navigate(`/teacher/lesson/${lesson.id}`)}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                                            title="Open Interactive Slide Builder"
+                                        >
+                                            <Layers className="h-3.5 w-3.5" />
+                                            Edit Slides
+                                        </button>
                                         <button
                                             onClick={() => editLesson(lesson)}
                                             className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                                            title="Edit Lesson Details"
                                         >
                                             <Edit2 className="h-5 w-5" />
                                         </button>
                                         <button
                                             onClick={() => deleteLesson(lesson.id)}
                                             className="p-2 text-red-600 hover:bg-red-50 rounded"
+                                            title="Delete Lesson"
                                         >
                                             <Trash2 className="h-5 w-5" />
                                         </button>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Users, BookOpen, LogOut, Loader2, Calendar, TrendingUp, Clock, Shield } from 'lucide-react';
+import { Plus, Users, BookOpen, LogOut, Loader2, Calendar, TrendingUp, Clock, Shield, Play, Copy, CheckCheck, XCircle } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import CreateClassModal from '../components/Teacher/CreateClassModal';
@@ -19,6 +19,8 @@ const TeacherDashboard = () => {
     const { user, isAdmin, signOut } = useAuth();
     const [lessons, setLessons] = useState([]);
     const [classes, setClasses] = useState([]);
+    const [activeSessions, setActiveSessions] = useState([]);
+    const [copiedCodeId, setCopiedCodeId] = useState(null);
     const [loading, setLoading] = useState(true);
     const initialTab = VALID_TEACHER_TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'lessons';
     const [activeTab, setActiveTab] = useState(initialTab);
@@ -34,18 +36,35 @@ const TeacherDashboard = () => {
         if (!user) return;
         setLoading(true);
         try {
-            const [lessonsRes, classesRes] = await Promise.all([
+            const [lessonsRes, classesRes, activeRes] = await Promise.all([
                 api.lessons.getAll(),
                 api.classes.getAll(),
+                api.sessions.getActiveList(),
             ]);
             setLessons(lessonsRes.data || []);
             setClasses(classesRes.data || []);
+            setActiveSessions(activeRes.data || []);
         } catch (error) {
             console.error('Error fetching data:', error);
         } finally {
             setLoading(false);
         }
     }, [user]);
+
+    const handleEndActiveSession = async (sessionId) => {
+        try {
+            await api.sessions.end(sessionId);
+            setActiveSessions(prev => prev.filter(s => s.id !== sessionId));
+        } catch (err) {
+            console.error('Failed to end session:', err);
+        }
+    };
+
+    const handleCopyStudentLink = (sess) => {
+        navigator.clipboard.writeText(`${window.location.origin}/join?code=${sess.code}`);
+        setCopiedCodeId(sess.id);
+        setTimeout(() => setCopiedCodeId(null), 2000);
+    };
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -110,6 +129,60 @@ const TeacherDashboard = () => {
                         </button>
                     </div>
                 </header>
+
+                {/* Active Live Sessions Bar */}
+                {activeSessions.length > 0 && (
+                    <div className="mb-8 space-y-3">
+                        {activeSessions.map((sess) => (
+                            <div
+                                key={sess.id}
+                                className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 text-white rounded-2xl p-5 shadow-md border border-emerald-700 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                            >
+                                <div className="flex items-center gap-3.5">
+                                    <span className="flex h-3.5 w-3.5 relative shrink-0">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-400"></span>
+                                    </span>
+                                    <div>
+                                        <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-300">
+                                            Active Live Classroom
+                                        </span>
+                                        <h3 className="text-lg font-black text-white">
+                                            {sess.lessons?.title || 'Live Interactive Session'}
+                                            <span className="ml-3 text-xs font-mono bg-emerald-950/70 text-yellow-300 px-2.5 py-1 rounded-lg">
+                                                Code: {sess.code}
+                                            </span>
+                                        </h3>
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2.5">
+                                    <button
+                                        onClick={() => handleCopyStudentLink(sess)}
+                                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition-colors"
+                                    >
+                                        {copiedCodeId === sess.id ? <CheckCheck size={15} className="text-emerald-300" /> : <Copy size={15} />}
+                                        {copiedCodeId === sess.id ? 'Link Copied!' : 'Copy Student Link'}
+                                    </button>
+                                    <button
+                                        onClick={() => navigate(`/classroom/host/${sess.id}`)}
+                                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black shadow transition-colors"
+                                    >
+                                        <Play size={15} fill="currentColor" />
+                                        Resume Classroom
+                                    </button>
+                                    <button
+                                        onClick={() => handleEndActiveSession(sess.id)}
+                                        className="flex items-center gap-1 px-3 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/40 text-red-200 text-xs font-bold transition-colors"
+                                        title="End this live session"
+                                    >
+                                        <XCircle size={15} />
+                                        End
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
 
                 {/* Tabs */}
                 <div className="flex border-b border-gray-200 mb-8">

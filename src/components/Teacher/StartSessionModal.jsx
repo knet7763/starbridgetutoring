@@ -12,9 +12,12 @@ const StartSessionModal = ({ lesson, onClose }) => {
     const [starting, setStarting] = useState(false);
     const [sessionCode, setSessionCode] = useState(null);
     const [copied, setCopied] = useState(false);
+    const [linkCopied, setLinkCopied] = useState(false);
+    const [startError, setStartError] = useState(null);
 
     const handleStart = async () => {
         setStarting(true);
+        setStartError(null);
         try {
             const code = generateJoinCode();
             const { data, error } = await api.sessions.start({
@@ -27,6 +30,7 @@ const StartSessionModal = ({ lesson, onClose }) => {
             setSessionCode({ code, sessionId: data.id });
         } catch (err) {
             console.error('Error starting session:', err);
+            setStartError(err?.message || 'Could not start live session. Please try again.');
         } finally {
             setStarting(false);
         }
@@ -40,6 +44,13 @@ const StartSessionModal = ({ lesson, onClose }) => {
         navigator.clipboard.writeText(sessionCode.code);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleCopyJoinLink = () => {
+        const joinUrl = `${window.location.origin}/join?code=${sessionCode.code}`;
+        navigator.clipboard.writeText(joinUrl);
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 2000);
     };
 
     return (
@@ -60,6 +71,11 @@ const StartSessionModal = ({ lesson, onClose }) => {
                                 Launching: <span className="font-semibold text-gray-700">{lesson.title}</span>
                             </p>
                         </div>
+                        {startError && (
+                            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium text-center">
+                                {startError}
+                            </div>
+                        )}
                         <button
                             onClick={handleStart}
                             disabled={starting}
@@ -76,10 +92,10 @@ const StartSessionModal = ({ lesson, onClose }) => {
                                 <CheckCheck size={28} className="text-green-600" />
                             </div>
                             <h2 className="text-xl font-bold text-gray-900">Session Ready!</h2>
-                            <p className="text-gray-500 mt-1 text-sm">Share this code with your students</p>
+                            <p className="text-gray-500 mt-1 text-sm">Share this code or 1-click link with your students</p>
                         </div>
 
-                        <div className="bg-gray-50 border-2 border-gray-200 rounded-2xl p-6 mb-6 flex items-center justify-between">
+                        <div className="bg-gray-50 border-2 border-gray-200 rounded-2xl p-6 mb-4 flex items-center justify-between">
                             <span className="text-4xl font-black tracking-widest font-mono text-gray-900">
                                 {sessionCode.code}
                             </span>
@@ -88,12 +104,28 @@ const StartSessionModal = ({ lesson, onClose }) => {
                                 className="flex items-center gap-1 text-sm font-semibold text-gray-500 hover:text-primary transition-colors"
                             >
                                 {copied ? <CheckCheck size={18} className="text-green-500" /> : <Copy size={18} />}
-                                {copied ? 'Copied!' : 'Copy'}
+                                {copied ? 'Copied!' : 'Copy Code'}
                             </button>
                         </div>
-                        <p className="text-center text-sm text-gray-500 mb-4">
-                            Students go to <span className="font-bold text-primary">{typeof window !== 'undefined' ? `${window.location.host}/join` : 'starbridgetutors.com/join'}</span>
-                        </p>
+
+                        <div className="grid grid-cols-2 gap-2.5 mb-5">
+                            <button
+                                onClick={handleCopyJoinLink}
+                                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-xs font-bold text-gray-700 transition-colors"
+                            >
+                                {linkCopied ? <CheckCheck size={15} className="text-green-500" /> : <Copy size={15} className="text-blue-600" />}
+                                {linkCopied ? 'Link Copied!' : 'Copy 1-Click Link'}
+                            </button>
+                            <a
+                                href={`https://wa.me/?text=${encodeURIComponent(`Assalamu Alaikum! Join our live StarBridge class (${lesson.title}) here: ${window.location.origin}/join?code=${sessionCode.code} (Code: ${sessionCode.code})`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white transition-colors"
+                            >
+                                WhatsApp Invite
+                            </a>
+                        </div>
+
                         <button
                             onClick={handleEnterClassroom}
                             className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-green-700 transition-all"
