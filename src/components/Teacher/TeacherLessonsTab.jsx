@@ -22,7 +22,9 @@ const TeacherLessonsTab = ({ lessons, setLessons, setStartSessionLesson, user })
             const { data: newLesson, error: lessonErr } = await api.lessons.create({
                 title: `${lesson.title} (Copy)`,
                 tutor_id: user.id,
-                description: lesson.description
+                description: lesson.description,
+                subject: lesson.subject || 'Quran & Tajweed',
+                difficulty: lesson.difficulty || 'Beginner',
             });
             if (lessonErr) throw lessonErr;
 

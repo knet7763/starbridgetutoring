@@ -14,6 +14,7 @@ import QuizPollSlideEditor from '../components/Builder/QuizPollSlideEditor';
 import QuranSlideEditor from '../components/Builder/QuranSlideEditor';
 import HadithSlideEditor from '../components/Builder/HadithSlideEditor';
 import FiqhSlideEditor from '../components/Builder/FiqhSlideEditor';
+import LessonViewer from '../components/LessonViewer';
 
 // ── Minimal toast ─────────────────────────────────────────────────────────────
 const Toast = ({ toast, onDismiss }) => {
@@ -36,6 +37,9 @@ const LessonBuilder = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [lessonTitle, setLessonTitle] = useState('Untitled Lesson');
+    const [lessonSubject, setLessonSubject] = useState('Quran & Tajweed');
+    const [lessonDifficulty, setLessonDifficulty] = useState('Beginner');
+    const [showPreview, setShowPreview] = useState(false);
     const [slides, setSlides] = useState([]);
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
     const [toast, setToast] = useState(null);
@@ -107,6 +111,8 @@ const LessonBuilder = () => {
 
             if (lessonError) throw lessonError;
             setLessonTitle(lesson.title);
+            if (lesson.subject) setLessonSubject(lesson.subject);
+            if (lesson.difficulty) setLessonDifficulty(lesson.difficulty);
 
             // Fetch slides
             const { data: lessonSlides, error: slidesError } = await api.slides.getByLessonId(lessonId);
@@ -169,15 +175,20 @@ const LessonBuilder = () => {
                 const { data, error } = await api.lessons.create({
                     title: lessonTitle,
                     tutor_id: user.id,
-                    subject: 'General',
-                    difficulty: 'Beginner'
+                    subject: lessonSubject || 'Quran & Tajweed',
+                    difficulty: lessonDifficulty || 'Beginner'
                 });
                 if (error) throw error;
                 realLessonId = data.id;
                 // Update URL without reload
                 navigate(`/teacher/lesson/${realLessonId}`, { replace: true });
             } else {
-                await api.lessons.update(lessonId, { title: lessonTitle, updated_at: new Date() });
+                await api.lessons.update(lessonId, {
+                    title: lessonTitle,
+                    subject: lessonSubject || 'Quran & Tajweed',
+                    difficulty: lessonDifficulty || 'Beginner',
+                    updated_at: new Date()
+                });
             }
 
             // 2. Save Slides
@@ -275,9 +286,21 @@ const LessonBuilder = () => {
     return (
         <div className="h-screen flex flex-col bg-gray-50">
             <Toast toast={toast} onDismiss={() => setToast(null)} />
+            {showPreview && (
+                <LessonViewer
+                    lesson={{
+                        id: lessonId.startsWith('new-') ? null : lessonId,
+                        title: lessonTitle,
+                        subject: lessonSubject,
+                        difficulty: lessonDifficulty,
+                    }}
+                    initialSlides={slides}
+                    onClose={() => setShowPreview(false)}
+                />
+            )}
             {/* Header */}
             <header className="h-16 bg-white border-b flex items-center justify-between px-6 shadow-sm z-10">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                     <Link to="/teacher/dashboard" className="p-2 hover:bg-gray-100 rounded-full text-gray-600">
                         <ChevronLeft size={24} />
                     </Link>
@@ -287,16 +310,38 @@ const LessonBuilder = () => {
                         onChange={(e) => setLessonTitle(e.target.value)}
                         className="text-lg font-semibold border-none focus:ring-0 text-gray-800 bg-transparent"
                     />
+                    <select
+                        value={lessonSubject}
+                        onChange={(e) => setLessonSubject(e.target.value)}
+                        className="hidden md:block text-xs font-semibold text-gray-700 bg-gray-100 border border-gray-200 rounded-lg px-2.5 py-1.5"
+                        title="Lesson Subject"
+                    >
+                        <option value="Quran & Tajweed">Quran & Tajweed</option>
+                        <option value="Hifz & Memorization">Hifz & Memorization</option>
+                        <option value="Arabic Language">Arabic Language</option>
+                        <option value="Islamic Studies">Islamic Studies</option>
+                        <option value="General">General</option>
+                    </select>
+                    <select
+                        value={lessonDifficulty}
+                        onChange={(e) => setLessonDifficulty(e.target.value)}
+                        className="hidden lg:block text-xs font-semibold text-gray-700 bg-gray-100 border border-gray-200 rounded-lg px-2.5 py-1.5"
+                        title="Difficulty Level"
+                    >
+                        <option value="Beginner">Beginner</option>
+                        <option value="Intermediate">Intermediate</option>
+                        <option value="Advanced">Advanced</option>
+                    </select>
                 </div>
                 <div className="flex gap-3">
                     <button
                         onClick={handleLaunchVideo}
                         className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-lg font-bold flex items-center gap-2 transition-all border border-yellow-500/20"
-                        title="Launch 1-on-1 Video Room (Jitsi Meet — free & open source)"
+                        title="Save and start interactive LiveKit Classroom"
                         style={{ borderBottom: '3px solid #CA8A04' }}
                     >
                         <Video size={18} />
-                        Launch 1on1 Video
+                        Start Live Class
                     </button>
                     <button
                         onClick={() => setShowAIModal(true)}
@@ -306,7 +351,10 @@ const LessonBuilder = () => {
                         <Sparkles size={18} className="animate-pulse" />
                         AI Copilot
                     </button>
-                    <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">
+                    <button
+                        onClick={() => setShowPreview(true)}
+                        className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium"
+                    >
                         Preview
                     </button>
                     <button

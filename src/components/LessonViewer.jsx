@@ -9,19 +9,24 @@ import FiqhStage from './Classroom/Stage/FiqhStage';
 import YoutubeStage from './Classroom/Stage/YoutubeStage';
 import Board from './Whiteboard/Board';
 
-const LessonViewer = ({ lesson, onClose }) => {
+const LessonViewer = ({ lesson, onClose, initialSlides = null }) => {
     const { student } = useAuth();
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [progress, setProgress] = useState(null);
     const [updating, setUpdating] = useState(false);
-    const [slides, setSlides] = useState([]);
-    const [loadingSlides, setLoadingSlides] = useState(true);
+    const [slides, setSlides] = useState(initialSlides || []);
+    const [loadingSlides, setLoadingSlides] = useState(!initialSlides);
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState(null);
     const [starAwarded, setStarAwarded] = useState(false);
 
     // Track lesson view & fetch interactive slides
     useEffect(() => {
+        if (initialSlides) {
+            setSlides(initialSlides);
+            setLoadingSlides(false);
+            return;
+        }
         if (!lesson?.id) return;
 
         supabase
@@ -46,7 +51,7 @@ const LessonViewer = ({ lesson, onClose }) => {
         return () => {
             cancelled = true;
         };
-    }, [lesson?.id, lesson?.view_count]);
+    }, [lesson?.id, lesson?.view_count, initialSlides]);
 
     // Track/Fetch User Progress
     useEffect(() => {

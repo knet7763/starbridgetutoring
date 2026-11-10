@@ -265,7 +265,70 @@ The classroom whiteboard is centered on the theme **"${slideTitle || 'Interactiv
 
             // Subject specific custom interactive questions
             const lowerTopic = sanitizedTopic.toLowerCase();
-            if (lowerTopic.includes('fraction') || lowerTopic.includes('math') || lowerTopic.includes('algebra')) {
+            if (lowerTopic.includes('quran') || lowerTopic.includes('surah') || lowerTopic.includes('tajweed') || lowerTopic.includes('hifz') || lowerTopic.includes('fatihah') || lowerTopic.includes('ikhlas')) {
+                const surahNum = lowerTopic.includes('ikhlas') ? 112 : lowerTopic.includes('falaq') ? 113 : lowerTopic.includes('nas') ? 114 : lowerTopic.includes('mulk') ? 67 : 1;
+                generatedSlides.push({
+                    id: `temp-${Date.now()}-3`,
+                    type: 'quran',
+                    content: {
+                        surah: surahNum,
+                        startAyah: 1,
+                        endAyah: surahNum === 67 ? 5 : 7
+                    }
+                });
+                generatedSlides.push({
+                    id: `temp-${Date.now()}-4`,
+                    type: 'quiz',
+                    content: {
+                        question: 'When reciting the Quran with Tajweed, what is the primary purpose of observing Makharij (articulation points)?',
+                        options: ['Reciting as fast as possible', 'Pronouncing each Arabic letter from its proper point of origin', 'Skipping difficult verses', 'Reading silently only'],
+                        correctAnswer: 1
+                    }
+                });
+            } else if (lowerTopic.includes('hadith') || lowerTopic.includes('sunnah') || lowerTopic.includes('adab') || lowerTopic.includes('character')) {
+                generatedSlides.push({
+                    id: `temp-${Date.now()}-3`,
+                    type: 'hadith',
+                    content: {
+                        hadith: 'خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ',
+                        translation: 'The best among you are those who learn the Quran and teach it.',
+                        narrator: 'Uthman ibn Affan (RA)',
+                        source: 'Sahih al-Bukhari 5027'
+                    }
+                });
+                generatedSlides.push({
+                    id: `temp-${Date.now()}-4`,
+                    type: 'quiz',
+                    content: {
+                        question: 'How should a student of knowledge apply the teachings of the Prophetic Sunnah in daily life?',
+                        options: ['Only during classroom hours', 'With sincerity, good character (Akhlaq), and consistency', 'By memorizing without reflection', 'None of the above'],
+                        correctAnswer: 1
+                    }
+                });
+            } else if (lowerTopic.includes('fiqh') || lowerTopic.includes('salah') || lowerTopic.includes('wudu') || lowerTopic.includes('prayer') || lowerTopic.includes('fasting') || lowerTopic.includes('zakat')) {
+                generatedSlides.push({
+                    id: `temp-${Date.now()}-3`,
+                    type: 'fiqh',
+                    content: {
+                        topic: sanitizedTopic,
+                        scenario: `A student wants to ensure their practice of ${sanitizedTopic} fulfills all essential conditions (Shurut) and pillars (Arkan) properly.`,
+                        rulings: [
+                            'Intention (Niyyah) in the heart is an essential requirement before beginning an act of worship.',
+                            'Observing the correct sequence (Tartib) and calmness (Tuma’ninah) ensures validity.'
+                        ],
+                        principle: 'Matters are judged by their intentions (Al-Umuru bi-Maqasidiha).'
+                    }
+                });
+                generatedSlides.push({
+                    id: `temp-${Date.now()}-4`,
+                    type: 'quiz',
+                    content: {
+                        question: 'Where does the intention (Niyyah) for an act of worship reside?',
+                        options: ['In the heart', 'Written on paper', 'Only spoken loudly', 'It is optional'],
+                        correctAnswer: 0
+                    }
+                });
+            } else if (lowerTopic.includes('fraction') || lowerTopic.includes('math') || lowerTopic.includes('algebra')) {
                 generatedSlides.push({
                     id: `temp-${Date.now()}-3`,
                     type: 'quiz',

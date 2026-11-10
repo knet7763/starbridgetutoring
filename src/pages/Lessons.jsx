@@ -39,10 +39,11 @@ const Lessons = () => {
 
         // Filter by search term
         if (searchTerm) {
+            const term = searchTerm.toLowerCase();
             filtered = filtered.filter(lesson =>
-                lesson.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                lesson.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                lesson.subject.toLowerCase().includes(searchTerm.toLowerCase())
+                (lesson.title || '').toLowerCase().includes(term) ||
+                (lesson.description || '').toLowerCase().includes(term) ||
+                (lesson.subject || '').toLowerCase().includes(term)
             );
         }
 
@@ -212,19 +213,26 @@ const Lessons = () => {
                                     )}
                                 </div>
 
-                                {lesson.file_url && (
-                                    <div className="bg-gray-50 px-6 py-3 border-t border-gray-200">
+                                <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-between gap-2">
+                                    <button
+                                        onClick={() => setSelectedLesson(lesson)}
+                                        className="text-sm font-bold text-primary hover:text-yellow-700 flex items-center gap-1.5"
+                                    >
+                                        <Eye className="h-4 w-4" />
+                                        Open Interactive Lesson
+                                    </button>
+                                    {lesson.file_url && (
                                         <a
                                             href={lesson.file_url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-sm font-medium text-primary hover:text-secondary flex items-center"
+                                            className="text-xs font-semibold text-gray-600 hover:text-primary flex items-center"
                                         >
-                                            <Download className="h-4 w-4 mr-1" />
-                                            Download Lesson
+                                            <Download className="h-3.5 w-3.5 mr-1" />
+                                            Download File
                                         </a>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>
