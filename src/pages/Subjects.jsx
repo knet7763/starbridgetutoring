@@ -1,5 +1,7 @@
 import React from 'react';
-import { Calculator, Book, FlaskConical, PenTool, GraduationCap } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Calculator, Book, FlaskConical, PenTool, GraduationCap, ArrowRight } from 'lucide-react';
+import Button from '../components/Button';
 
 const Subjects = () => {
     const subjects = [
@@ -25,7 +27,13 @@ const Subjects = () => {
                         <div key={subject.name} className="flex flex-col items-center p-8 bg-blue-50 rounded-2xl border border-blue-100 hover:shadow-lg transition-all">
                             <subject.icon className="h-16 w-16 text-accent mb-6" />
                             <h3 className="text-2xl font-bold text-gray-900 mb-2">{subject.name}</h3>
-                            <p className="text-center text-gray-600">{subject.desc}</p>
+                            <p className="text-center text-gray-600 mb-6 flex-grow">{subject.desc}</p>
+                            <Link
+                                to={`/book-trial?subject=${encodeURIComponent(subject.name)}`}
+                                className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:text-yellow-700 transition-colors"
+                            >
+                                Book Free Trial <ArrowRight size={16} />
+                            </Link>
                         </div>
                     ))}
                 </div>
@@ -50,7 +58,13 @@ const Subjects = () => {
                             <div key={course.name} className="flex flex-col items-center p-8 bg-yellow-50 rounded-2xl border border-yellow-200 hover:shadow-xl hover:-translate-y-1 transition-all">
                                 <span className="text-5xl mb-6">{course.icon}</span>
                                 <h3 className="text-xl font-bold text-gray-900 mb-2 text-center">{course.name}</h3>
-                                <p className="text-center text-gray-600 text-sm">{course.desc}</p>
+                                <p className="text-center text-gray-600 text-sm mb-6 flex-grow">{course.desc}</p>
+                                <Link
+                                    to={`/book-trial?subject=${encodeURIComponent(course.name)}`}
+                                    className="inline-flex items-center gap-1.5 text-sm font-bold text-yellow-800 hover:text-primary transition-colors"
+                                >
+                                    Book Free Trial <ArrowRight size={15} />
+                                </Link>
                             </div>
                         ))}
                     </div>
@@ -69,9 +83,17 @@ const Subjects = () => {
 
                 <div className="mt-20 text-center">
                     <h2 className="text-3xl font-bold text-gray-900 mb-6">How Classes Work</h2>
-                    <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                    <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
                         Lessons are delivered online through live video sessions with interactive whiteboards and worksheets, ensuring a classroom-like experience from the comfort of your home.
                     </p>
+                    <div className="flex flex-wrap justify-center gap-4">
+                        <Button to="/book-trial" variant="primary">
+                            Book a Free Trial
+                        </Button>
+                        <Button to="/lessons" variant="outline">
+                            Browse Interactive Lessons
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>

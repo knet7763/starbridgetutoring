@@ -1,14 +1,15 @@
 import React from 'react';
 import { UserPlus, Search, Calendar, CreditCard, Video, TrendingUp } from 'lucide-react';
+import Button from '../components/Button';
 
 const HowItWorks = () => {
     const steps = [
         { icon: UserPlus, title: '1. Sign Up', desc: 'Create your free account to get started.' },
         { icon: Search, title: '2. Choose Subject & Tutor', desc: 'Browse our list of qualified tutors and subjects.' },
         { icon: Calendar, title: '3. Book Your Time', desc: 'Select a time slot that fits your schedule.' },
-        { icon: CreditCard, title: '4. Secure Payment', desc: 'Pay securely via M-Pesa or PayPal.' },
-        { icon: Video, title: '5. Attend Online Class', desc: 'Join the live interactive video session.' },
-        { icon: TrendingUp, title: '6. Track Progress', desc: 'Monitor improvement with regular reports.' },
+        { icon: CreditCard, title: '4. Flexible Packages', desc: 'Start with a free trial, then pick a package that fits your family.' },
+        { icon: Video, title: '5. Attend Online Class', desc: 'Join the live interactive video session and whiteboard.' },
+        { icon: TrendingUp, title: '6. Track Progress', desc: 'Monitor improvement with regular reports and stars.' },
     ];
 
     return (
@@ -33,6 +34,24 @@ const HowItWorks = () => {
                                 <p className="text-gray-600">{step.desc}</p>
                             </div>
                         ))}
+                    </div>
+                </div>
+
+                <div className="mt-16 text-center bg-white rounded-3xl p-10 shadow-sm border border-gray-100">
+                    <h2 className="text-2xl font-extrabold text-gray-900 mb-3">Ready to Begin?</h2>
+                    <p className="text-gray-600 mb-6 max-w-xl mx-auto">
+                        Book your free trial session today or join an active live class with your teacher&apos;s code.
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-4">
+                        <Button to="/book-trial" variant="primary">
+                            Book a Free Trial
+                        </Button>
+                        <Button to="/tutors" variant="secondary">
+                            Meet Our Tutors
+                        </Button>
+                        <Button to="/join" variant="outline">
+                            Join Live Class
+                        </Button>
                     </div>
                 </div>
             </div>

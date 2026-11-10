@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../components/Button';
 import { api } from '../services/api';
 import { CheckCircle, Calendar, ArrowRight, GraduationCap, Play } from 'lucide-react';
@@ -7,14 +7,22 @@ import { motion } from 'framer-motion';
 
 const BookTrial = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [formData, setFormData] = useState({
         parent_name: '',
         student_name: '',
         email: '',
         phone: '',
         grade_level: '',
-        subject: ''
+        subject: searchParams.get('subject') || ''
     });
+
+    useEffect(() => {
+        const urlSubject = searchParams.get('subject');
+        if (urlSubject) {
+            setFormData(prev => ({ ...prev, subject: urlSubject }));
+        }
+    }, [searchParams]);
     const [loading, setLoading] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [error, setError] = useState('');
@@ -189,7 +197,7 @@ const BookTrial = () => {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Subject</label>
-                                    <input name="subject" type="text" onChange={handleChange} className="w-full rounded-2xl border-gray-200 border px-4 py-3 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all" placeholder="e.g. Math, Quran" />
+                                    <input name="subject" type="text" value={formData.subject} onChange={handleChange} className="w-full rounded-2xl border-gray-200 border px-4 py-3 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all" placeholder="e.g. Math, Quran" />
                                 </div>
                             </div>
 
