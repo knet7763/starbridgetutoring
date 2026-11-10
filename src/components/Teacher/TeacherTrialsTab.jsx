@@ -1,7 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { Loader2, Mail, Phone, Calendar, User, CheckCircle, Clock } from 'lucide-react';
+import { Loader2, Mail, Phone, Calendar, User, CheckCircle, Clock, MessageCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+
+const buildWhatsAppUrl = (trial) => {
+    const digits = String(trial.phone || '').replace(/[^\d]/g, '');
+    const msg = encodeURIComponent(
+        `Assalamu Alaikum ${trial.parent_name || ''}! This is StarBridge Tutoring following up on your free trial request for ${trial.student_name || 'your child'} (${trial.subject || 'Tutoring'}). What time works best for your 45-minute trial session?`
+    );
+    return digits ? `https://wa.me/${digits}?text=${msg}` : null;
+};
+
+const buildEmailReplyUrl = (trial) => {
+    const subject = encodeURIComponent(`Your Free Trial Session at StarBridge Tutoring – ${trial.student_name || ''}`);
+    const body = encodeURIComponent(
+        `Assalamu Alaikum ${trial.parent_name || ''},\n\nThank you for requesting a free trial session for ${trial.student_name || 'your child'} (${trial.subject || 'Tutoring'}) at StarBridge Tutoring!\n\nPlease reply with a day and time that works best for you, or create your student account at https://starbridgetutors.com/student/signup to book directly.\n\nWarm regards,\nStarBridge Tutoring Team\nhttps://starbridgetutors.com`
+    );
+    return `mailto:${trial.email}?subject=${subject}&body=${body}`;
+};
 
 const TeacherTrialsTab = () => {
     const [trials, setTrials] = useState([]);
@@ -98,6 +114,27 @@ const TeacherTrialsTab = () => {
                         <div className="bg-primary/5 p-3 rounded-xl border border-primary/10">
                             <p className="text-xs font-bold text-primary uppercase mb-1">Subject Interest</p>
                             <p className="text-sm font-bold text-gray-700">{trial.subject || 'Not specified'}</p>
+                        </div>
+
+                        <div className="flex gap-2 pt-1">
+                            {trial.email && (
+                                <a
+                                    href={buildEmailReplyUrl(trial)}
+                                    className="flex-1 py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                                >
+                                    <Mail size={14} /> Reply by Email
+                                </a>
+                            )}
+                            {buildWhatsAppUrl(trial) && (
+                                <a
+                                    href={buildWhatsAppUrl(trial)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex-1 py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                                >
+                                    <MessageCircle size={14} /> WhatsApp
+                                </a>
+                            )}
                         </div>
                     </div>
 

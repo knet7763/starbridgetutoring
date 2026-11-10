@@ -30,14 +30,26 @@ const Contact = () => {
 
         setSubmitting(true);
         try {
-            // Attempt to trigger notification email via edge function
-            await api.email.send('trial_request_admin', 'support@starbridgetutors.com', {
+            // Also record in trial_requests so inquiries are visible in the Admin/Teacher dashboard
+            await api.trials.create({
+                parent_name: formData.name,
+                student_name: 'General Inquiry',
+                email: formData.email,
+                phone: 'Not provided',
+                grade_level: formData.message,
+                subject: formData.subject || 'Website Contact Form',
+            }).catch(() => {});
+
+            // Trigger notification email to the configured dynamic admin email
+            const adminEmail = await api.settings.getAdminEmail();
+            await api.email.send('trial_request_admin', adminEmail, {
                 parentName: formData.name,
                 studentName: 'General Inquiry',
                 email: formData.email,
                 phone: 'Not provided',
                 subject: formData.subject || 'Website Contact Form',
-                message: formData.message
+                message: formData.message,
+                dashboardUrl: `${window.location.origin}/admin/dashboard?tab=trials`
             }).catch(err => {
                 console.warn('[Contact] Edge function notice:', err?.message || err);
             });

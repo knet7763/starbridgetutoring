@@ -11,8 +11,9 @@ const Navbar = () => {
     const location = useLocation();
     const navigate = useNavigate();
 
-    const { user, student, signOut, loading } = useAuth();
-    const isTeacher = !!user && !student;
+    const { user, student, isAdmin, isTeacher: isTeacherRole, signOut, loading } = useAuth();
+    const isStaff = !!user && (isAdmin || isTeacherRole || !student);
+    const dashboardPath = isAdmin ? '/admin/dashboard' : student ? '/student/dashboard' : '/teacher/dashboard';
     const isAuthLoading = loading;
 
     useEffect(() => {
@@ -27,6 +28,7 @@ const Navbar = () => {
         { name: 'Home', href: '/' },
         { name: 'Subjects', href: '/subjects' },
         { name: 'Tutors', href: '/tutors' },
+        { name: 'Lessons', href: '/lessons' },
         { name: 'Pricing', href: '/pricing' },
         { name: 'About', href: '/about' },
         { name: 'Join Class', href: '/join' },
@@ -90,10 +92,10 @@ const Navbar = () => {
                         <div className="flex items-center gap-4">
                             {isAuthLoading ? (
                                 <div className="h-10 w-32 bg-gray-100 animate-pulse rounded-full"></div>
-                            ) : student || isTeacher ? (
+                            ) : student || isStaff ? (
                                 <div className="flex items-center gap-3">
                                     <Link 
-                                        to={student ? "/student/dashboard" : "/teacher/dashboard"}
+                                        to={dashboardPath}
                                         className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-full text-sm font-bold hover:bg-gray-800 transition-all shadow-lg shadow-gray-900/10"
                                     >
                                         <LayoutDashboard size={16} />
@@ -167,10 +169,10 @@ const Navbar = () => {
                             ))}
                             
                             <div className="pt-4 border-t border-gray-100 mt-4 space-y-3">
-                                {student || isTeacher ? (
+                                {student || isStaff ? (
                                     <>
                                         <Link
-                                            to={student ? "/student/dashboard" : "/teacher/dashboard"}
+                                            to={dashboardPath}
                                             className="flex items-center gap-3 px-4 py-4 rounded-2xl bg-gray-900 text-white font-bold"
                                             onClick={() => setIsOpen(false)}
                                         >

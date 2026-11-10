@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronRight, ChevronLeft, Users, LogOut, Copy, CheckCheck, Video, VideoOff, Mic, MicOff, MonitorUp, Award, Sparkles, X, Activity, AlertTriangle } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Users, LogOut, Copy, CheckCheck, Video, VideoOff, Mic, MicOff, MonitorUp, Award, Sparkles, X, Activity, AlertTriangle, Pencil, Hand } from 'lucide-react';
 import { DataPacket_Kind } from 'livekit-client';
 import Board from '../components/Whiteboard/Board';
 import { supabase } from '../lib/supabase';
@@ -43,6 +43,9 @@ const ClassroomHost = () => {
     // Live student presence map: { [participantName]: { stars, currentSlideType, timestamp } }
     const [studentPresence, setStudentPresence] = useState({});
     const [videoErrorToast, setVideoErrorToast] = useState(null);
+    const [collabMode, setCollabMode] = useState(false);
+    const [raisedHands, setRaisedHands] = useState([]);
+    const sessionChannelRef = useRef(null);
 
     useEffect(() => {
         const fetchBadges = async () => {
@@ -209,10 +212,22 @@ const ClassroomHost = () => {
                     }));
                 }
             })
+            // Listen to student hand raises
+            .on('broadcast', { event: 'hand_raise' }, ({ payload }) => {
+                if (payload?.name) {
+                    setRaisedHands(prev => {
+                        const filtered = prev.filter(n => n !== payload.name);
+                        return payload.raised ? [...filtered, payload.name] : filtered;
+                    });
+                }
+            })
             .subscribe();
+
+        sessionChannelRef.current = participantChannel;
 
         return () => {
             cancelled = true;
+            sessionChannelRef.current = null;
             supabase.removeChannel(participantChannel);
         };
     }, [sessionId, joinRoom]);
@@ -347,6 +362,29 @@ const ClassroomHost = () => {
         }
     };
 
+    const handleToggleCollabMode = () => {
+        const next = !collabMode;
+        setCollabMode(next);
+        if (sessionChannelRef.current) {
+            sessionChannelRef.current.send({
+                type: 'broadcast',
+                event: 'collab_mode',
+                payload: { enabled: next },
+            }).catch(() => {});
+        }
+    };
+
+    const dismissHand = (studentName) => {
+        setRaisedHands(prev => prev.filter(n => n !== studentName));
+        if (sessionChannelRef.current) {
+            sessionChannelRef.current.send({
+                type: 'broadcast',
+                event: 'hand_lowered',
+                payload: { name: studentName },
+            }).catch(() => {});
+        }
+    };
+
     if (loading) return <div className="flex justify-center items-center h-screen bg-gray-900 text-white">Loading Classroom...</div>;
     if (!session) return <div className="text-white text-center pt-20">Session not found</div>;
 
@@ -354,6 +392,28 @@ const ClassroomHost = () => {
 
     return (
         <div className="h-screen flex flex-col bg-gray-900 text-white">
+
+            {/* Raised Hands Notification Banner */}
+            {raisedHands.length > 0 && (
+                <div className="absolute top-16 right-6 z-50 flex flex-col gap-2">
+                    {raisedHands.map((studentName) => (
+                        <div
+                            key={studentName}
+                            className="flex items-center gap-3 bg-yellow-400 text-gray-950 px-4 py-2.5 rounded-2xl shadow-2xl font-black text-sm animate-bounce"
+                        >
+                            <Hand size={18} />
+                            <span>✋ {studentName} raised their hand!</span>
+                            <button
+                                onClick={() => dismissHand(studentName)}
+                                className="ml-1 px-2 py-0.5 bg-gray-950/15 hover:bg-gray-950/25 rounded-lg text-xs font-bold"
+                                title="Acknowledge & lower hand"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* Video Error Toast – doesn't crash the classroom */}
             {(videoError || videoErrorToast) && (
@@ -533,6 +593,19 @@ const ClassroomHost = () => {
                                 title={isScreenSharing ? "Stop Sharing Screen" : "Share Screen"}
                             >
                                 <MonitorUp size={20} className={isScreenSharing ? "text-white" : "text-gray-300"} />
+                            </button>
+
+                            <button
+                                onClick={handleToggleCollabMode}
+                                className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                                    collabMode
+                                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+                                        : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                                }`}
+                                title={collabMode ? "Student Whiteboard Drawing is ON (Click to lock)" : "Allow Students to Draw on Whiteboard"}
+                            >
+                                <Pencil size={14} />
+                                {collabMode ? 'Student Draw: ON' : 'Allow Draw'}
                             </button>
                         </div>
                     </div>

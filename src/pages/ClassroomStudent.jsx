@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { Sparkles, MessageSquare, HelpCircle, CheckCircle, BarChart2, Youtube, Image as ImageIcon, Video, VideoOff, Mic, MicOff, MonitorUp, WifiOff, Pencil, PenLine, Award } from 'lucide-react';
+import { Sparkles, MessageSquare, HelpCircle, CheckCircle, BarChart2, Youtube, Video, VideoOff, Mic, MicOff, MonitorUp, WifiOff, Pencil, PenLine, Award, Hand } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import VideoSidebar from '../components/Classroom/VideoSidebar';
 import { useVideoRoom } from '../hooks/useVideoRoom';
@@ -37,11 +37,12 @@ const ClassroomStudent = () => {
     const [roomError, setRoomError] = useState(null);
     const [collabMode, setCollabMode] = useState(false);
     const [showCollabBanner, setShowCollabBanner] = useState(false);
+    const [handRaised, setHandRaised] = useState(false);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
-    const [heartbeatData, setHeartbeatData] = useState({});
     const starBtnRef = useRef(null);
     const joinedRef = useRef(false);
     const heartbeatIntervalRef = useRef(null);
+    const sessionChannelRef = useRef(null);
 
     // Online/offline detection
     useEffect(() => {
@@ -186,7 +187,7 @@ const ClassroomStudent = () => {
                     })
                     .subscribe();
 
-                // Subscribe to teacher broadcast events (collab mode toggles)
+                // Subscribe to teacher broadcast events (collab mode toggles & hand lower)
                 sessionChannel = supabase.channel(`session:${sessionId}`);
                 sessionChannel
                     .on('broadcast', { event: 'collab_mode' }, ({ payload }) => {
@@ -194,7 +195,14 @@ const ClassroomStudent = () => {
                         setShowCollabBanner(true);
                         setTimeout(() => setShowCollabBanner(false), 4000);
                     })
+                    .on('broadcast', { event: 'hand_lowered' }, ({ payload }) => {
+                        if (payload?.name === guestName) {
+                            setHandRaised(false);
+                        }
+                    })
                     .subscribe();
+
+                sessionChannelRef.current = sessionChannel;
 
                 // Start heartbeat every 10 seconds — always reads latest refs to avoid stale closure
                 if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
@@ -624,6 +632,28 @@ const ClassroomStudent = () => {
                             title={isScreenSharing ? "Stop Sharing Screen" : "Share Screen"}
                         >
                             <MonitorUp size={20} className={isScreenSharing ? "text-white" : ""} />
+                        </button>
+                        <button
+                            onClick={() => {
+                                const next = !handRaised;
+                                setHandRaised(next);
+                                if (sessionChannelRef.current) {
+                                    sessionChannelRef.current.send({
+                                        type: 'broadcast',
+                                        event: 'hand_raise',
+                                        payload: { name: guestName, raised: next },
+                                    }).catch(() => {});
+                                }
+                            }}
+                            className={`px-3.5 py-2.5 rounded-full font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                                handRaised
+                                    ? 'bg-yellow-400 text-gray-950 shadow-lg shadow-yellow-400/30 scale-105'
+                                    : 'hover:bg-gray-700 text-gray-200'
+                            }`}
+                            title={handRaised ? "Lower Hand" : "Raise Hand to Ask a Question or Recite"}
+                        >
+                            <Hand size={16} />
+                            {handRaised ? 'Hand Raised' : 'Raise Hand'}
                         </button>
                     </div>
                 </main>
