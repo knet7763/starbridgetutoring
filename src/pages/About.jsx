@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Target, Users, Heart, Shield, Sparkles, Star } from 'lucide-react';
+import Button from '../components/Button';
 
 const About = () => {
     return (
@@ -127,6 +128,26 @@ const About = () => {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Bottom Call to Action */}
+            <section className="py-20 bg-gray-50 border-t border-gray-100">
+                <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                    <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight mb-4">
+                        Ready to Start Your Learning Journey?
+                    </h2>
+                    <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+                        Experience our dedicated tutors, interactive curriculum, and personalized attention with a free 30-minute trial session.
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-4">
+                        <Button to="/book-trial" variant="primary" className="px-8 py-3.5 text-base">
+                            Book Free Trial Session
+                        </Button>
+                        <Button to="/pricing" variant="outline" className="px-8 py-3.5 text-base">
+                            View Plans & Pricing
+                        </Button>
                     </div>
                 </div>
             </section>

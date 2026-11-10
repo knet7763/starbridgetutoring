@@ -70,7 +70,7 @@ const Pricing = () => {
                                     </li>
                                 ))}
                             </ul>
-                            <Button to="/book-trial" variant={plan.variant} className="w-full justify-center">
+                            <Button to={`/book-trial?subject=${encodeURIComponent(plan.name)}`} variant={plan.variant} className="w-full justify-center">
                                 {plan.cta}
                             </Button>
                         </div>
