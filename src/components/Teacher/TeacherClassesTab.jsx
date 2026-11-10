@@ -1,12 +1,20 @@
-import React from 'react';
-import { Users, Trash2, Plus } from 'lucide-react';
+import React, { useState } from 'react';
+import { Users, Trash2, Plus, Copy, CheckCheck } from 'lucide-react';
 import { api } from '../../services/api';
 
 const TeacherClassesTab = ({ classes, setClasses, setShowCreateClassModal }) => {
+    const [copiedId, setCopiedId] = useState(null);
+
     const handleDeleteClass = async (classId) => {
         if (!window.confirm('Delete this class?')) return;
         await api.classes.delete(classId);
         setClasses(prev => prev.filter(c => c.id !== classId));
+    };
+
+    const handleCopyCode = (cls) => {
+        navigator.clipboard.writeText(cls.join_code);
+        setCopiedId(cls.id);
+        setTimeout(() => setCopiedId(null), 2000);
     };
 
     return (
@@ -23,8 +31,17 @@ const TeacherClassesTab = ({ classes, setClasses, setShowCreateClassModal }) => 
                         </button>
                     </div>
                     <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex items-center justify-between mt-4">
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Join Code</span>
-                        <span className="text-2xl font-black text-primary tracking-widest font-mono">{cls.join_code}</span>
+                        <div>
+                            <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Join Code</span>
+                            <span className="text-2xl font-black text-primary tracking-widest font-mono">{cls.join_code}</span>
+                        </div>
+                        <button
+                            onClick={() => handleCopyCode(cls)}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-gray-200 hover:border-primary text-xs font-bold text-gray-600 hover:text-primary transition-colors"
+                        >
+                            {copiedId === cls.id ? <CheckCheck size={14} className="text-green-500" /> : <Copy size={14} />}
+                            {copiedId === cls.id ? 'Copied!' : 'Copy'}
+                        </button>
                     </div>
                 </div>
             ))}

@@ -37,19 +37,24 @@ const TeacherInsightsTab = ({ user }) => {
                 supabase
                     .from('active_sessions')
                     .select('*, lessons(title)')
-                    .eq('tutor_id', user.id)
-                    .order('created_at', { ascending: false }),
+                    .eq('tutor_id', user.id),
                 supabase
                     .from('enrollments')
                     .select('*, student_profiles(full_name), tutors(subject)')
                     .eq('tutor_id', user.id)
             ]);
 
-            setSessions(sessionsRes.data || []);
+            const sortedSessions = (sessionsRes.data || []).sort((a, b) => {
+                const dateA = new Date(a.started_at || a.created_at || 0).getTime();
+                const dateB = new Date(b.started_at || b.created_at || 0).getTime();
+                return dateB - dateA;
+            });
+
+            setSessions(sortedSessions);
             setEnrollments(enrollmentsRes.data || []);
             
-            if (sessionsRes.data?.length > 0 && !selectedSessionId) {
-                setSelectedSessionId(sessionsRes.data[0].id);
+            if (sortedSessions.length > 0 && !selectedSessionId) {
+                setSelectedSessionId(sortedSessions[0].id);
             }
         } catch (error) {
             console.error('Error fetching initial data:', error);
@@ -250,16 +255,20 @@ const TeacherInsightsTab = ({ user }) => {
                         {sessions.length === 0 ? (
                             <div className="p-10 text-center text-gray-400">No sessions yet</div>
                         ) : (
-                            sessions.map((session) => (
-                                <button
-                                    key={session.id}
-                                    onClick={() => setSelectedSessionId(session.id)}
-                                    className={`w-full text-left p-6 hover:bg-gray-50 transition-all ${selectedSessionId === session.id ? 'bg-primary/5 border-l-4 border-primary' : ''}`}
-                                >
-                                    <p className="font-black text-gray-900">{session.lessons?.title || 'Untitled Class'}</p>
-                                    <p className="text-xs text-gray-400 mt-1 font-bold">{new Date(session.created_at).toLocaleDateString()} • {new Date(session.created_at).toLocaleTimeString()}</p>
-                                </button>
-                            ))
+                            sessions.map((session) => {
+                                const ts = session.started_at || session.created_at;
+                                const dateLabel = ts ? `${new Date(ts).toLocaleDateString()} • ${new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : `Code: ${session.code}`;
+                                return (
+                                    <button
+                                        key={session.id}
+                                        onClick={() => setSelectedSessionId(session.id)}
+                                        className={`w-full text-left p-6 hover:bg-gray-50 transition-all ${selectedSessionId === session.id ? 'bg-primary/5 border-l-4 border-primary' : ''}`}
+                                    >
+                                        <p className="font-black text-gray-900">{session.lessons?.title || 'Untitled Class'}</p>
+                                        <p className="text-xs text-gray-400 mt-1 font-bold">{dateLabel}</p>
+                                    </button>
+                                );
+                            })
                         )}
                     </div>
                 </div>
