@@ -15,9 +15,11 @@ import {
     VideoOff,
     User,
     MessageSquare,
+    BookOpen,
 } from 'lucide-react';
 import { DataPacket_Kind } from 'livekit-client';
 import Board from '../components/Whiteboard/Board';
+import QuranStage from '../components/Classroom/Stage/QuranStage';
 import VideoSidebar, { TrackRenderer, extractParticipantTracks } from '../components/Classroom/VideoSidebar';
 import ChatPanel from '../components/Classroom/ChatPanel';
 import { useVideoRoom } from '../hooks/useVideoRoom';
@@ -87,7 +89,9 @@ const MeetingRoom = () => {
     const [booking, setBooking] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [videoWarning, setVideoWarning] = useState(null);
     const [activeTool, setActiveTool] = useState('video');
+    const [quranSurah, setQuranSurah] = useState(1);
     const [showChat, setShowChat] = useState(false);
     const [messages, setMessages] = useState([]);
     const joinedRef = useRef(false);
@@ -179,8 +183,8 @@ const MeetingRoom = () => {
                 await joinRoom(url, token, authorizedRoomName || roomName, displayName);
             } catch (err) {
                 joinedRef.current = false;
-                console.error('LiveKit meeting join failed:', err);
-                setError(err.message || 'Failed to join the LiveKit room.');
+                console.warn('LiveKit meeting join warning (non-blocking):', err);
+                setVideoWarning(err.message || 'LiveKit video is reconnecting — you can use the Backup Server or Interactive Tools.');
             }
         };
 
@@ -336,7 +340,13 @@ const MeetingRoom = () => {
                             onClick={() => setActiveTool('split')}
                             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${activeTool === 'split' ? 'bg-primary text-white shadow-lg' : 'hover:bg-white/5 text-gray-400'}`}
                         >
-                            <Layout size={18} /> Interactive View
+                            <Layout size={18} /> Whiteboard
+                        </button>
+                        <button
+                            onClick={() => setActiveTool('quran')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${activeTool === 'quran' ? 'bg-primary text-white shadow-lg' : 'hover:bg-white/5 text-gray-400'}`}
+                        >
+                            <BookOpen size={18} /> Quran Reader
                         </button>
                     </div>
                 </div>
@@ -395,14 +405,14 @@ const MeetingRoom = () => {
                                             Switch to Backup Video Server
                                         </button>
                                     </div>
-                                ) : liveKitError && allParticipants.length === 0 ? (
+                                ) : (liveKitError || videoWarning) && allParticipants.length === 0 ? (
                                     <div className="flex-1 flex flex-col items-center justify-center text-center">
                                         <VideoOff className="w-14 h-14 text-red-400 mb-4" />
-                                        <h2 className="text-2xl font-black text-white mb-2">Video Connection Failed</h2>
-                                        <p className="text-gray-400 max-w-md">{liveKitError}</p>
+                                        <h2 className="text-2xl font-black text-white mb-2">Video Connection Notice</h2>
+                                        <p className="text-gray-400 max-w-md">{liveKitError || videoWarning}</p>
                                         <div className="flex gap-3 mt-6">
                                             <button
-                                                onClick={retryLiveKit}
+                                                onClick={() => { setVideoWarning(null); retryLiveKit(); }}
                                                 className="py-2.5 px-5 bg-primary text-gray-950 rounded-xl text-xs font-black uppercase tracking-wider"
                                             >
                                                 Retry LiveKit
@@ -474,17 +484,51 @@ const MeetingRoom = () => {
                     </div>
                 </div>
 
-                {/* Right Panel: Whiteboard Workspace */}
-                <div className={`flex-1 bg-white relative transition-all duration-500 ${activeTool === 'video' ? 'opacity-0 pointer-events-none w-0' : 'opacity-100'}`}>
-                    <div className="absolute top-6 left-6 z-10 bg-gray-900/90 backdrop-blur px-4 py-2 rounded-xl border border-white/10 text-white flex items-center gap-2 shadow-2xl">
-                        <Edit3 size={16} className="text-primary" />
-                        <span className="text-xs font-black uppercase tracking-widest">Shared Interactive Board</span>
-                    </div>
-                    <Board
-                        sessionId={bookingId}
-                        readOnly={false}
-                        className="w-full h-full"
-                    />
+                {/* Right Panel: Whiteboard or Quran Reader Workspace */}
+                <div className={`flex-1 bg-white relative transition-all duration-500 ${activeTool === 'video' ? 'opacity-0 pointer-events-none w-0' : 'opacity-100 flex flex-col'}`}>
+                    {activeTool === 'quran' ? (
+                        <div className="w-full h-full flex flex-col bg-gray-900 overflow-hidden">
+                            <div className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-white">
+                                    <BookOpen size={16} className="text-primary" />
+                                    <span className="text-xs font-black uppercase tracking-widest">Interactive Quran & Tajweed Reader</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-xs font-bold text-gray-400">Surah #:</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="114"
+                                        value={quranSurah}
+                                        onChange={(e) => setQuranSurah(Math.max(1, Math.min(114, parseInt(e.target.value, 10) || 1)))}
+                                        className="w-20 bg-gray-800 border border-gray-700 text-white text-sm font-bold px-3 py-1 rounded-lg outline-none focus:border-primary"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto">
+                                <QuranStage
+                                    slide={{
+                                        id: `meeting-quran-${quranSurah}`,
+                                        type: 'quran',
+                                        content: { surah: quranSurah, startAyah: 1, endAyah: 20 }
+                                    }}
+                                    isTeacher={Boolean(user && !student)}
+                                />
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="absolute top-6 left-6 z-10 bg-gray-900/90 backdrop-blur px-4 py-2 rounded-xl border border-white/10 text-white flex items-center gap-2 shadow-2xl">
+                                <Edit3 size={16} className="text-primary" />
+                                <span className="text-xs font-black uppercase tracking-widest">Shared Interactive Board</span>
+                            </div>
+                            <Board
+                                sessionId={bookingId}
+                                readOnly={false}
+                                className="w-full h-full"
+                            />
+                        </>
+                    )}
                 </div>
 
                 {/* Chat Panel */}

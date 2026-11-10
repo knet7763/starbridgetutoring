@@ -440,6 +440,39 @@ The classroom whiteboard is centered on the theme **"${slideTitle || 'Interactiv
             }
             return import.meta.env.VITE_ADMIN_EMAIL || 'knet7763@gmail.com';
         },
+        getSiteSettings: async () => {
+            const defaults = {
+                admin_email: import.meta.env.VITE_ADMIN_EMAIL || 'knet7763@gmail.com',
+                support_email: 'support@starbridgetutors.com',
+                support_phone: '+254 700 000 000',
+                whatsapp_number: '+254 700 000 000',
+            };
+            try {
+                const { data, error } = await supabase
+                    .from('app_settings')
+                    .select('key, value');
+                if (!error && Array.isArray(data)) {
+                    const merged = { ...defaults };
+                    data.forEach((row) => {
+                        if (row?.key && row?.value) {
+                            merged[row.key] = row.value;
+                        }
+                    });
+                    return merged;
+                }
+            } catch (err) {
+                console.warn('[settings.getSiteSettings] Using defaults:', err);
+            }
+            return defaults;
+        },
+        saveSiteSettings: async (settingsObj) => {
+            const rows = Object.entries(settingsObj).map(([key, value]) => ({
+                key,
+                value: String(value || '').trim(),
+                updated_at: new Date().toISOString(),
+            }));
+            return supabase.from('app_settings').upsert(rows, { onConflict: 'key' });
+        },
     },
 };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Button from '../components/Button';
 import { Mail, Phone, MessageCircle, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
@@ -10,9 +10,21 @@ const Contact = () => {
         subject: '',
         message: ''
     });
+    const [siteSettings, setSiteSettings] = useState({
+        admin_email: 'knet7763@gmail.com',
+        support_email: 'support@starbridgetutors.com',
+        support_phone: '+254 700 000 000',
+        whatsapp_number: '+254 700 000 000',
+    });
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [error, setError] = useState('');
+
+    useEffect(() => {
+        api.settings.getSiteSettings().then((s) => {
+            if (s) setSiteSettings(s);
+        }).catch(() => {});
+    }, []);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -86,22 +98,40 @@ const Contact = () => {
                                 <Mail className="h-6 w-6 text-primary mt-1" />
                                 <div className="ml-4">
                                     <h3 className="text-lg font-medium text-gray-900">Email</h3>
-                                    <p className="text-gray-600">support@starbridgetutors.com</p>
+                                    <a
+                                        href={`mailto:${siteSettings.support_email || siteSettings.admin_email}`}
+                                        className="text-gray-600 hover:text-primary transition-colors"
+                                    >
+                                        {siteSettings.support_email || siteSettings.admin_email}
+                                    </a>
                                 </div>
                             </div>
                             <div className="flex items-start">
                                 <Phone className="h-6 w-6 text-primary mt-1" />
                                 <div className="ml-4">
                                     <h3 className="text-lg font-medium text-gray-900">Phone</h3>
-                                    <p className="text-gray-600">+1 (555) 123-4567</p>
+                                    <a
+                                        href={`tel:${(siteSettings.support_phone || '').replace(/\s+/g, '')}`}
+                                        className="text-gray-600 hover:text-primary transition-colors"
+                                    >
+                                        {siteSettings.support_phone}
+                                    </a>
                                 </div>
                             </div>
                             <div className="flex items-start">
                                 <MessageCircle className="h-6 w-6 text-green-500 mt-1" />
                                 <div className="ml-4">
                                     <h3 className="text-lg font-medium text-gray-900">WhatsApp</h3>
-                                    <p className="text-gray-600">+1 (555) 987-6543</p>
-                                    <Button variant="accent" className="mt-2 text-xs py-1 px-3">Chat on WhatsApp</Button>
+                                    <p className="text-gray-600">{siteSettings.whatsapp_number}</p>
+                                    <a
+                                        href={`https://wa.me/${(siteSettings.whatsapp_number || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent('Assalamu Alaikum! I would like to inquire about StarBridge Tutoring classes.')}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs py-2 px-4 shadow-sm transition-colors"
+                                    >
+                                        <MessageCircle size={14} />
+                                        Chat on WhatsApp
+                                    </a>
                                 </div>
                             </div>
                             <div className="flex items-start">

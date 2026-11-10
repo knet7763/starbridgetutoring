@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, Users, FileText, LogOut, Clock, Calendar, Play, Copy, CheckCheck, XCircle } from 'lucide-react';
+import { BookOpen, Users, FileText, LogOut, Clock, Calendar, Play, Copy, CheckCheck, XCircle, Settings, Save } from 'lucide-react';
 import AdminTutorsTab from '../components/Admin/AdminTutorsTab';
 import AdminLessonsTab from '../components/Admin/AdminLessonsTab';
 import AdminAvailabilityTab from '../components/Admin/AdminAvailabilityTab';
 import TeacherTrialsTab from '../components/Teacher/TeacherTrialsTab';
 
-const VALID_ADMIN_TABS = ['tutors', 'lessons', 'availability', 'trials'];
+const VALID_ADMIN_TABS = ['tutors', 'lessons', 'availability', 'trials', 'settings'];
 
 const AdminDashboard = () => {
     const { user, signOut } = useAuth();
@@ -21,6 +21,14 @@ const AdminDashboard = () => {
     const [activeSessions, setActiveSessions] = useState([]);
     const [copiedCodeId, setCopiedCodeId] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [siteSettings, setSiteSettings] = useState({
+        admin_email: 'knet7763@gmail.com',
+        support_email: 'support@starbridgetutors.com',
+        support_phone: '+254 700 000 000',
+        whatsapp_number: '+254 700 000 000',
+    });
+    const [savingSettings, setSavingSettings] = useState(false);
+    const [settingsSaved, setSettingsSaved] = useState(false);
 
     const handleTabChange = (tab) => {
         setActiveTab(tab);
@@ -30,11 +38,31 @@ const AdminDashboard = () => {
     useEffect(() => {
         const loadDashboard = async () => {
             setLoading(true);
-            await Promise.all([fetchTutors(), fetchLessons(), fetchActiveSessions()]);
+            await Promise.all([fetchTutors(), fetchLessons(), fetchActiveSessions(), fetchSiteSettings()]);
             setLoading(false);
         };
         loadDashboard();
     }, []);
+
+    const fetchSiteSettings = async () => {
+        const s = await api.settings.getSiteSettings();
+        if (s) setSiteSettings(s);
+    };
+
+    const handleSaveSiteSettings = async (e) => {
+        e.preventDefault();
+        setSavingSettings(true);
+        setSettingsSaved(false);
+        try {
+            await api.settings.saveSiteSettings(siteSettings);
+            setSettingsSaved(true);
+            setTimeout(() => setSettingsSaved(false), 3000);
+        } catch (err) {
+            console.error('Failed to save site settings:', err);
+        } finally {
+            setSavingSettings(false);
+        }
+    };
 
     const fetchActiveSessions = async () => {
         const { data, error } = await api.sessions.getActiveList();
@@ -193,11 +221,21 @@ const AdminDashboard = () => {
                             <Calendar className="h-5 w-5 mr-2" />
                             Trial Requests
                         </button>
+                        <button
+                            onClick={() => handleTabChange('settings')}
+                            className={`${activeTab === 'settings'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+                        >
+                            <Settings className="h-5 w-5 mr-2" />
+                            Site Settings
+                        </button>
                     </nav>
                 </div>
 
                 {/* Content */}
-                <div className="mt-8">
+                <div className="mt-8 pb-16">
                     {activeTab === 'tutors' && (
                         <AdminTutorsTab tutors={tutors} loading={loading} fetchTutors={fetchTutors} />
                     )}
@@ -209,6 +247,81 @@ const AdminDashboard = () => {
                     )}
                     {activeTab === 'trials' && (
                         <TeacherTrialsTab />
+                    )}
+                    {activeTab === 'settings' && (
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 max-w-2xl">
+                            <h2 className="text-xl font-bold text-gray-900 mb-1">Site & Contact Settings</h2>
+                            <p className="text-sm text-gray-500 mb-6">
+                                Configure where trial & contact email alerts are delivered and update the WhatsApp and phone numbers shown on your Contact page and Footer.
+                            </p>
+                            <form onSubmit={handleSaveSiteSettings} className="space-y-5">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                        Admin Notification Email (Trial & Contact Alerts)
+                                    </label>
+                                    <input
+                                        type="email"
+                                        required
+                                        value={siteSettings.admin_email}
+                                        onChange={(e) => setSiteSettings({ ...siteSettings, admin_email: e.target.value })}
+                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                        Public Support Email (Shown on Contact Page & Footer)
+                                    </label>
+                                    <input
+                                        type="email"
+                                        required
+                                        value={siteSettings.support_email}
+                                        onChange={(e) => setSiteSettings({ ...siteSettings, support_email: e.target.value })}
+                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                            WhatsApp Number (with country code)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={siteSettings.whatsapp_number}
+                                            onChange={(e) => setSiteSettings({ ...siteSettings, whatsapp_number: e.target.value })}
+                                            placeholder="+254 700 000 000"
+                                            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                            Support Phone Number
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={siteSettings.support_phone}
+                                            onChange={(e) => setSiteSettings({ ...siteSettings, support_phone: e.target.value })}
+                                            placeholder="+254 700 000 000"
+                                            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4 pt-2">
+                                    <button
+                                        type="submit"
+                                        disabled={savingSettings}
+                                        className="inline-flex items-center gap-2 bg-primary hover:bg-yellow-600 text-white font-bold px-6 py-2.5 rounded-xl transition-colors disabled:opacity-50"
+                                    >
+                                        <Save size={16} />
+                                        {savingSettings ? 'Saving...' : 'Save Settings'}
+                                    </button>
+                                    {settingsSaved && (
+                                        <span className="text-sm font-bold text-emerald-600 flex items-center gap-1">
+                                            <CheckCheck size={16} /> Settings saved!
+                                        </span>
+                                    )}
+                                </div>
+                            </form>
+                        </div>
                     )}
                 </div>
             </div>
