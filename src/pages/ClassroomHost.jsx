@@ -28,6 +28,7 @@ const ClassroomHost = () => {
     const [sessionParticipants, setSessionParticipants] = useState([]);
     const [shoutResponses, setShoutResponses] = useState([]);
     const [codeCopied, setCodeCopied] = useState(false);
+    const [linkCopied, setLinkCopied] = useState(false);
     const [roomError, setRoomError] = useState(null);
     const joinedRef = React.useRef(false);
 
@@ -362,6 +363,15 @@ const ClassroomHost = () => {
         }
     };
 
+    const handleCopyInviteLink = () => {
+        if (session?.code) {
+            const joinUrl = `${window.location.origin}/join?code=${session.code}`;
+            navigator.clipboard.writeText(joinUrl);
+            setLinkCopied(true);
+            setTimeout(() => setLinkCopied(false), 2000);
+        }
+    };
+
     const handleToggleCollabMode = () => {
         const next = !collabMode;
         setCollabMode(next);
@@ -450,8 +460,8 @@ const ClassroomHost = () => {
                     {/* Join Code */}
                     <button
                         onClick={handleCopyCode}
-                        className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 px-4 py-1.5 rounded-lg border border-gray-700 transition-colors"
-                        title="Click to copy code"
+                        className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 px-3.5 py-1.5 rounded-lg border border-gray-700 transition-colors"
+                        title="Click to copy 6-digit code"
                     >
                         <span className="text-xs text-gray-500 uppercase tracking-wider">Code:</span>
                         <span className="text-base font-black font-mono tracking-widest text-primary">
@@ -461,6 +471,26 @@ const ClassroomHost = () => {
                             ? <CheckCheck size={14} className="text-green-400" />
                             : <Copy size={14} className="text-gray-500" />}
                     </button>
+
+                    {/* 1-Click Direct Invite Link & WhatsApp */}
+                    <button
+                        onClick={handleCopyInviteLink}
+                        className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg border border-gray-700 text-xs font-semibold text-gray-200 transition-colors"
+                        title="Copy 1-click student join link"
+                    >
+                        {linkCopied ? <CheckCheck size={14} className="text-green-400" /> : <Copy size={14} className="text-blue-400" />}
+                        <span>{linkCopied ? 'Link Copied!' : 'Share Link'}</span>
+                    </button>
+
+                    <a
+                        href={`https://wa.me/?text=${encodeURIComponent(`Assalamu Alaikum! Our live StarBridge class (${session.lessons?.title || 'Interactive Session'}) is now open. Click here to join immediately: ${window.location.origin}/join?code=${session.code} (Class Code: ${session.code})`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hidden sm:flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-600 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors"
+                        title="Send class invite via WhatsApp"
+                    >
+                        <span>WhatsApp Invite</span>
+                    </a>
 
                     {/* Participants Toggle Button */}
                     <button

@@ -58,6 +58,7 @@ export const api = {
     },
     sessions: {
         getActiveById: (id) => supabase.from('active_sessions').select('*, lessons(*)').eq('id', id).single(),
+        getActiveList: () => supabase.from('active_sessions').select('*, lessons(title, subject)').eq('is_active', true).limit(5),
         getByCode: (code) => supabase.from('active_sessions').select('id, is_active').eq('code', code).single(),
         start: async (data) => {
             try {

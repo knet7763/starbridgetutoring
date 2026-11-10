@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowRight, BookOpen, User } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowRight, BookOpen, User, Radio } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const JoinClass = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { student } = useAuth();
     const [step, setStep] = useState('code'); // 'code' | 'name'
-    const [code, setCode] = useState('');
+    const [code, setCode] = useState((searchParams.get('code') || '').trim().toUpperCase());
     const [name, setName] = useState(student?.full_name || '');
     const [sessionId, setSessionId] = useState(null);
+    const [activeSessions, setActiveSessions] = useState([]);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -20,17 +22,17 @@ const JoinClass = () => {
         }
     }, [student?.full_name, name]);
 
-    // Step 1: validate code
-    const handleCodeSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        if (code.trim().length < 6) {
+    const validateAndSelectCode = useCallback(async (rawCode) => {
+        const cleanCode = (rawCode || '').trim().toUpperCase();
+        if (cleanCode.length < 6) {
             setError('Please enter a valid 6-character code.');
             return;
         }
+        setError('');
+        setCode(cleanCode);
         setLoading(true);
         try {
-            const { data, error: dbErr } = await api.sessions.getByCode(code.trim().toUpperCase());
+            const { data, error: dbErr } = await api.sessions.getByCode(cleanCode);
 
             if (dbErr || !data) throw new Error('Session not found.');
             if (!data.is_active) throw new Error('This session has ended.');
@@ -42,6 +44,22 @@ const JoinClass = () => {
         } finally {
             setLoading(false);
         }
+    }, []);
+
+    useEffect(() => {
+        const urlCode = (searchParams.get('code') || '').trim().toUpperCase();
+        if (urlCode.length >= 6) {
+            validateAndSelectCode(urlCode);
+        }
+        api.sessions.getActiveList().then(({ data }) => {
+            if (data) setActiveSessions(data);
+        }).catch(() => {});
+    }, [searchParams, validateAndSelectCode]);
+
+    // Step 1: validate code
+    const handleCodeSubmit = async (e) => {
+        e.preventDefault();
+        await validateAndSelectCode(code);
     };
 
     // Step 2: register name and enter
@@ -131,6 +149,37 @@ const JoinClass = () => {
                             {loading ? 'Checking...' : 'Next'}
                             {!loading && <ArrowRight size={18} />}
                         </button>
+
+                        {activeSessions.length > 0 && (
+                            <div className="pt-4 border-t border-gray-100">
+                                <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                                    <Radio size={14} className="text-emerald-500 animate-pulse" />
+                                    Live Classes in Progress (Click to Join)
+                                </p>
+                                <div className="space-y-2">
+                                    {activeSessions.map((sess) => (
+                                        <button
+                                            key={sess.id}
+                                            type="button"
+                                            onClick={() => validateAndSelectCode(sess.code)}
+                                            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors text-left"
+                                        >
+                                            <div className="min-w-0 pr-2">
+                                                <p className="text-sm font-bold text-gray-900 truncate">
+                                                    {sess.lessons?.title || 'Live Interactive Class'}
+                                                </p>
+                                                <p className="text-xs text-emerald-700 font-mono font-bold">
+                                                    Code: {sess.code}
+                                                </p>
+                                            </div>
+                                            <span className="shrink-0 text-xs font-bold bg-emerald-600 text-white px-2.5 py-1 rounded-lg">
+                                                Join →
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </form>
                 ) : (
                     <form onSubmit={handleNameSubmit} className="space-y-5">

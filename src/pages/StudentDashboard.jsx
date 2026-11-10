@@ -48,6 +48,7 @@ const StudentDashboard = () => {
     const [enrollments, setEnrollments] = useState([]);
     const [lessonProgress, setLessonProgress] = useState([]);
     const [upcomingBookings, setUpcomingBookings] = useState([]);
+    const [activeSessions, setActiveSessions] = useState([]);
     const [badges, setBadges] = useState([]);
     const [studentStars, setStudentStars] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -87,8 +88,18 @@ const StudentDashboard = () => {
             fetchLessonProgress(),
             fetchUpcomingBookings(),
             fetchGamificationData(),
+            fetchActiveSessions(),
         ]);
         setLoading(false);
+    };
+
+    const fetchActiveSessions = async () => {
+        try {
+            const { data, error } = await api.sessions.getActiveList();
+            if (!error) setActiveSessions(data || []);
+        } catch {
+            // Non-blocking
+        }
     };
 
     const fetchGamificationData = async () => {
@@ -173,6 +184,38 @@ const StudentDashboard = () => {
                     </div>
                 ) : (
                     <div className="space-y-8">
+                        {/* Live Active Class Banner */}
+                        {activeSessions.length > 0 && (
+                            <div className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 rounded-2xl shadow-lg p-6 text-white border border-emerald-700">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div className="flex items-start gap-3.5">
+                                        <span className="mt-1 flex h-3.5 w-3.5 relative shrink-0">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-400"></span>
+                                        </span>
+                                        <div>
+                                            <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-300">
+                                                Live Classroom in Progress
+                                            </span>
+                                            <h2 className="text-xl font-black text-white mt-0.5">
+                                                {activeSessions[0].lessons?.title || 'Interactive Live Tutoring Session'}
+                                            </h2>
+                                            <p className="text-sm text-emerald-100 mt-1">
+                                                Class Code: <span className="font-mono font-bold bg-emerald-950/60 px-2 py-0.5 rounded">{activeSessions[0].code}</span> — Click below to enter the live classroom immediately.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => navigate(`/join?code=${activeSessions[0].code}`)}
+                                        className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black text-sm shadow-lg transition-all shrink-0"
+                                    >
+                                        <Video className="h-4 w-4" />
+                                        Enter Live Class Now
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Stats Overview */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                             <div className="bg-white rounded-lg shadow p-6">
