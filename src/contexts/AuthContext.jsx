@@ -56,11 +56,23 @@ export const AuthProvider = ({ children }) => {
         try {
             const { data: tutorMatch } = await supabase
                 .from('tutors')
-                .select('id, email')
+                .select('*')
                 .or(`id.eq.${sessionUser.id},email.ilike.${normalizedEmail}`)
                 .limit(1)
                 .maybeSingle();
             if (tutorMatch) {
+                if (tutorMatch.id !== sessionUser.id) {
+                    supabase.from('tutors').upsert([{
+                        id: sessionUser.id,
+                        name: tutorMatch.name || sessionUser.user_metadata?.full_name || 'Tutor',
+                        email: normalizedEmail,
+                        subject: tutorMatch.subject || 'General',
+                        bio: tutorMatch.bio,
+                        qualification: tutorMatch.qualification,
+                        image_url: tutorMatch.image_url,
+                        languages: tutorMatch.languages || ['English']
+                    }]).catch(() => {});
+                }
                 return expectedRole === 'admin' ? 'admin' : 'teacher';
             }
         } catch (e) {

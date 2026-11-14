@@ -22,7 +22,7 @@ const StartSessionModal = ({ lesson, onClose }) => {
             const code = generateJoinCode();
             const { data, error } = await api.sessions.start({
                 lesson_id: lesson.id,
-                tutor_id: user.id,
+                tutor_id: user?.id || lesson?.tutor_id,
                 code,
                 is_active: true,
             });

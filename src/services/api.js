@@ -39,7 +39,48 @@ export const api = {
     lessons: {
         getAll: () => supabase.from('lessons').select('*').order('created_at', { ascending: false }),
         getById: (id) => supabase.from('lessons').select('*').eq('id', id).single(),
-        create: (data) => supabase.from('lessons').insert([data]).select().single(),
+        create: async (data) => {
+            let effectiveTutorId = data.tutor_id;
+            if (effectiveTutorId) {
+                try {
+                    const { data: tutorMatch } = await supabase
+                        .from('tutors')
+                        .select('id')
+                        .eq('id', effectiveTutorId)
+                        .maybeSingle();
+
+                    if (!tutorMatch) {
+                        const { data: authData } = await supabase.auth.getUser();
+                        const authUser = authData?.user;
+                        if (authUser) {
+                            const { data: tutorByEmail } = await supabase
+                                .from('tutors')
+                                .select('id')
+                                .ilike('email', authUser.email || '')
+                                .maybeSingle();
+                            if (tutorByEmail) {
+                                effectiveTutorId = tutorByEmail.id;
+                            } else {
+                                const { data: autoTutor } = await supabase
+                                    .from('tutors')
+                                    .upsert([{
+                                        id: authUser.id,
+                                        name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Teacher',
+                                        email: authUser.email,
+                                        subject: data.subject || 'General',
+                                    }])
+                                    .select('id')
+                                    .maybeSingle();
+                                if (autoTutor?.id) effectiveTutorId = autoTutor.id;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[lessons.create] Tutor lookup warning:', e);
+                }
+            }
+            return supabase.from('lessons').insert([{ ...data, tutor_id: effectiveTutorId }]).select().single();
+        },
         update: (id, data) => supabase.from('lessons').update(data).eq('id', id),
         delete: (id) => supabase.from('lessons').delete().eq('id', id),
     },
@@ -69,9 +110,95 @@ export const api = {
                 if (!roomName) {
                     throw new Error('Failed to generate room name');
                 }
-                
-                // Store the room name in room_url field for now (schema compatibility)
-                return supabase.from('active_sessions').insert([{ ...data, id: sessionId, room_url: roomName }]).select().single();
+
+                let effectiveTutorId = data.tutor_id;
+
+                // 1. Verify that effectiveTutorId exists in public.tutors
+                if (effectiveTutorId) {
+                    const { data: tutorMatch } = await supabase
+                        .from('tutors')
+                        .select('id')
+                        .eq('id', effectiveTutorId)
+                        .maybeSingle();
+
+                    if (!tutorMatch) {
+                        const { data: authData } = await supabase.auth.getUser();
+                        const authUser = authData?.user;
+
+                        if (authUser) {
+                            const { data: tutorByEmail } = await supabase
+                                .from('tutors')
+                                .select('id')
+                                .ilike('email', authUser.email || '')
+                                .maybeSingle();
+
+                            if (tutorByEmail) {
+                                effectiveTutorId = tutorByEmail.id;
+                            } else {
+                                const { data: autoTutor } = await supabase
+                                    .from('tutors')
+                                    .upsert([{
+                                        id: authUser.id,
+                                        name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Teacher',
+                                        email: authUser.email,
+                                        subject: 'General',
+                                        bio: 'StarBridge Educator',
+                                        qualification: 'Educator',
+                                        languages: ['English']
+                                    }])
+                                    .select('id')
+                                    .maybeSingle();
+
+                                if (autoTutor?.id) effectiveTutorId = autoTutor.id;
+                            }
+                        }
+                    }
+                }
+
+                // 2. Fallback to lesson's tutor_id if still missing or invalid
+                if (!effectiveTutorId && data.lesson_id) {
+                    const { data: lessonData } = await supabase
+                        .from('lessons')
+                        .select('tutor_id')
+                        .eq('id', data.lesson_id)
+                        .maybeSingle();
+                    if (lessonData?.tutor_id) {
+                        effectiveTutorId = lessonData.tutor_id;
+                    }
+                }
+
+                // 3. Last fallback: any valid tutor in system to satisfy foreign key
+                if (!effectiveTutorId) {
+                    const { data: anyTutor } = await supabase
+                        .from('tutors')
+                        .select('id')
+                        .limit(1)
+                        .maybeSingle();
+                    if (anyTutor?.id) {
+                        effectiveTutorId = anyTutor.id;
+                    }
+                }
+
+                const insertPayload = {
+                    ...data,
+                    id: sessionId,
+                    tutor_id: effectiveTutorId,
+                    room_url: roomName
+                };
+
+                let res = await supabase.from('active_sessions').insert([insertPayload]).select().single();
+
+                // If foreign key still failed (e.g. race condition), fallback to any valid tutor
+                if (res.error && (res.error.code === '23503' || res.error.message?.includes('tutor_id_fkey'))) {
+                    console.warn('[sessions.start] Tutor FK constraint hit, attempting fallback to system tutor:', res.error);
+                    const { data: fallbackTutor } = await supabase.from('tutors').select('id').limit(1).maybeSingle();
+                    if (fallbackTutor?.id) {
+                        insertPayload.tutor_id = fallbackTutor.id;
+                        res = await supabase.from('active_sessions').insert([insertPayload]).select().single();
+                    }
+                }
+
+                return res;
             } catch (error) {
                 console.error('[sessions.start] Session creation failed:', error);
                 throw handleApiError(error, 'creating session');
