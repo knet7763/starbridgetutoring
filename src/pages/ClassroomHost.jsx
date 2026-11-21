@@ -540,7 +540,7 @@ const ClassroomHost = () => {
                     )}
 
                     {/* Main Stage */}
-                    <div className="flex-1 relative bg-white flex flex-col">
+                    <div className="flex-1 min-h-0 overflow-hidden relative bg-white flex flex-col">
                         {currentSlide?.type === 'shout_it_out' ? (
                             <ShoutItOutStage currentSlide={currentSlide} shoutResponses={shoutResponses} />
                         ) : currentSlide?.type === 'quiz' ? (

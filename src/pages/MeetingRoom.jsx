@@ -485,7 +485,7 @@ const MeetingRoom = () => {
                 </div>
 
                 {/* Right Panel: Whiteboard or Quran Reader Workspace */}
-                <div className={`flex-1 bg-white relative transition-all duration-500 ${activeTool === 'video' ? 'opacity-0 pointer-events-none w-0' : 'opacity-100 flex flex-col'}`}>
+                <div className={`bg-white relative min-h-0 overflow-hidden ${activeTool === 'video' ? 'hidden' : 'flex-1 flex flex-col'}`}>
                     {activeTool === 'quran' ? (
                         <div className="w-full h-full flex flex-col bg-gray-900 overflow-hidden">
                             <div className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center justify-between">
