@@ -577,8 +577,8 @@ const ClassroomHost = () => {
                             />
                         ) : null}
 
-                        {/* Navigation Controls (Floating) */}
-                        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-gray-800/90 backdrop-blur px-6 py-3 rounded-2xl shadow-2xl border border-gray-700 z-50">
+                        {/* Navigation Controls (Floating top-center so it never overlaps the bottom whiteboard toolbar) */}
+                        <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-gray-900/90 backdrop-blur px-4 py-2 rounded-2xl shadow-xl border border-gray-700 z-[410]">
                             <button
                                 onClick={handlePrev}
                                 disabled={currentSlideIndex === 0}
