@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, Users, FileText, LogOut, Clock, Calendar, Play, Copy, CheckCheck, XCircle, Settings, Save } from 'lucide-react';
+import { BookOpen, Users, FileText, LogOut, Clock, Calendar, Play, Copy, CheckCheck, XCircle, Settings, Save, GraduationCap, CalendarCheck } from 'lucide-react';
 import AdminTutorsTab from '../components/Admin/AdminTutorsTab';
+import AdminClassesTab from '../components/Admin/AdminClassesTab';
+import AdminBookingsTab from '../components/Admin/AdminBookingsTab';
 import AdminLessonsTab from '../components/Admin/AdminLessonsTab';
 import AdminAvailabilityTab from '../components/Admin/AdminAvailabilityTab';
 import TeacherTrialsTab from '../components/Teacher/TeacherTrialsTab';
 
-const VALID_ADMIN_TABS = ['tutors', 'lessons', 'availability', 'trials', 'settings'];
+const VALID_ADMIN_TABS = ['tutors', 'classes', 'bookings', 'lessons', 'availability', 'trials', 'settings'];
 
 const AdminDashboard = () => {
     const { user, signOut } = useAuth();
@@ -17,6 +19,8 @@ const AdminDashboard = () => {
     const initialTab = VALID_ADMIN_TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'tutors';
     const [activeTab, setActiveTab] = useState(initialTab);
     const [tutors, setTutors] = useState([]);
+    const [classes, setClasses] = useState([]);
+    const [bookings, setBookings] = useState([]);
     const [lessons, setLessons] = useState([]);
     const [activeSessions, setActiveSessions] = useState([]);
     const [copiedCodeId, setCopiedCodeId] = useState(null);
@@ -38,7 +42,14 @@ const AdminDashboard = () => {
     useEffect(() => {
         const loadDashboard = async () => {
             setLoading(true);
-            await Promise.all([fetchTutors(), fetchLessons(), fetchActiveSessions(), fetchSiteSettings()]);
+            await Promise.all([
+                fetchTutors(),
+                fetchClasses(),
+                fetchBookings(),
+                fetchLessons(),
+                fetchActiveSessions(),
+                fetchSiteSettings(),
+            ]);
             setLoading(false);
         };
         loadDashboard();
@@ -83,6 +94,16 @@ const AdminDashboard = () => {
     const fetchTutors = async () => {
         const { data, error } = await api.tutors.getAll();
         if (!error) setTutors(data || []);
+    };
+
+    const fetchClasses = async () => {
+        const { data, error } = await api.classes.getAll();
+        if (!error) setClasses(data || []);
+    };
+
+    const fetchBookings = async () => {
+        const { data, error } = await api.bookings.getAll();
+        if (!error) setBookings(data || []);
     };
 
     const fetchLessons = async () => {
@@ -179,8 +200,8 @@ const AdminDashboard = () => {
                     </div>
                 )}
 
-                <div className="border-b border-gray-200">
-                    <nav className="-mb-px flex space-x-8">
+                <div className="border-b border-gray-200 overflow-x-auto">
+                    <nav className="-mb-px flex space-x-6 min-w-max">
                         <button
                             onClick={() => handleTabChange('tutors')}
                             className={`${activeTab === 'tutors'
@@ -190,6 +211,26 @@ const AdminDashboard = () => {
                         >
                             <Users className="h-5 w-5 mr-2" />
                             Tutors ({tutors.length})
+                        </button>
+                        <button
+                            onClick={() => handleTabChange('classes')}
+                            className={`${activeTab === 'classes'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+                        >
+                            <GraduationCap className="h-5 w-5 mr-2" />
+                            Classes ({classes.length})
+                        </button>
+                        <button
+                            onClick={() => handleTabChange('bookings')}
+                            className={`${activeTab === 'bookings'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+                        >
+                            <CalendarCheck className="h-5 w-5 mr-2" />
+                            Bookings ({bookings.length})
                         </button>
                         <button
                             onClick={() => handleTabChange('lessons')}
@@ -238,6 +279,12 @@ const AdminDashboard = () => {
                 <div className="mt-8 pb-16">
                     {activeTab === 'tutors' && (
                         <AdminTutorsTab tutors={tutors} loading={loading} fetchTutors={fetchTutors} />
+                    )}
+                    {activeTab === 'classes' && (
+                        <AdminClassesTab classes={classes} tutors={tutors} loading={loading} fetchClasses={fetchClasses} />
+                    )}
+                    {activeTab === 'bookings' && (
+                        <AdminBookingsTab bookings={bookings} loading={loading} fetchBookings={fetchBookings} />
                     )}
                     {activeTab === 'lessons' && (
                         <AdminLessonsTab lessons={lessons} loading={loading} fetchLessons={fetchLessons} />

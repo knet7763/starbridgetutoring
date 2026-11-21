@@ -86,7 +86,23 @@ export const api = {
     },
     classes: {
         getAll: () => supabase.from('classes').select('*').order('created_at', { ascending: false }),
-        create: (data) => supabase.from('classes').insert([data]).select().single(),
+        create: async (data) => {
+            let res = await supabase.from('classes').insert([data]).select().single();
+            // If teacher_id does not exist in auth.users (23503) or hits RLS, retry with current authenticated user
+            if (res.error && (res.error.code === '23503' || res.error.code === '42501')) {
+                const { data: authData } = await supabase.auth.getUser();
+                const fallbackId = authData?.user?.id;
+                if (fallbackId && fallbackId !== data.teacher_id) {
+                    res = await supabase
+                        .from('classes')
+                        .insert([{ ...data, teacher_id: fallbackId }])
+                        .select()
+                        .single();
+                }
+            }
+            return res;
+        },
+        update: (id, data) => supabase.from('classes').update(data).eq('id', id).select().single(),
         delete: (id) => supabase.from('classes').delete().eq('id', id),
     },
     slides: {
@@ -230,7 +246,7 @@ export const api = {
             .select('id')
             .eq('student_id', studentId)
             .eq('tutor_id', tutorId)
-            .single(),
+            .maybeSingle(),
         create: (data) => supabase.from('enrollments').insert([data]),
         update: (id, data) => supabase.from('enrollments').update(data).eq('id', id),
     },
@@ -244,6 +260,10 @@ export const api = {
         upsert: (data) => supabase.from('lesson_progress').upsert(data),
     },
     bookings: {
+        getAll: () => supabase
+            .from('bookings')
+            .select('*, tutors:tutor_id(id, name, subject, email), students:student_id(full_name, parent_email, email)')
+            .order('booking_date', { ascending: false }),
         getUpcoming: (studentId, today) => supabase
             .from('bookings')
             .select('*, tutors:tutor_id(name, subject)')
@@ -254,7 +274,7 @@ export const api = {
             .limit(3),
         getTakenSlots: (tutorId, date) => supabase
             .from('bookings')
-            .select('start_time')
+            .select('start_time, end_time')
             .eq('tutor_id', tutorId)
             .eq('booking_date', date)
             .neq('status', 'cancelled'),
@@ -263,8 +283,9 @@ export const api = {
             .select('*, students:student_id(full_name, parent_email, email)')
             .eq('tutor_id', tutorId)
             .order('booking_date', { ascending: false }),
-        create: (data) => supabase.from('bookings').insert([data]),
+        create: (data) => supabase.from('bookings').insert(Array.isArray(data) ? data : [data]),
         update: (id, data) => supabase.from('bookings').update(data).eq('id', id),
+        delete: (id) => supabase.from('bookings').delete().eq('id', id),
         confirmWithRoom: async (id) => {
             try {
                 // For LiveKit, we don't need to create a room in advance
@@ -295,7 +316,7 @@ export const api = {
             .from('student_profiles')
             .select('stars')
             .eq('id', studentId)
-            .single(),
+            .maybeSingle(),
         awardStar: async (studentId, count = 1) => {
             // Uses atomic DB RPC to avoid read-then-write race conditions
             // when two star awards fire concurrently for the same student
