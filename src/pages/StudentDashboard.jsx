@@ -2,8 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
-import { BookOpen, LogOut, User, CheckCircle, Clock, Calendar, Video, Sparkles, Award, Book, Printer, X } from 'lucide-react';
+import { BookOpen, LogOut, User, CheckCircle, Clock, Calendar, Video, Sparkles, Award, Book, Printer, X, Coins, RefreshCw } from 'lucide-react';
 import Button from '../components/Button';
+
+const RESCHEDULE_MIN_HOURS = 12;
+
+const canRescheduleBooking = (booking) => {
+    if (!booking?.booking_date || !booking?.start_time) return false;
+    const startDt = new Date(`${booking.booking_date}T${booking.start_time.slice(0, 5)}:00`).getTime();
+    return startDt - Date.now() >= RESCHEDULE_MIN_HOURS * 60 * 60 * 1000;
+};
+
+const getLocalToday = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 const JUZ_AMMA_SURAHS = [
     { num: 1, name: 'Al-Fatihah', arabic: 'الفاتحة' },
@@ -51,9 +64,15 @@ const StudentDashboard = () => {
     const [activeSessions, setActiveSessions] = useState([]);
     const [badges, setBadges] = useState([]);
     const [studentStars, setStudentStars] = useState(0);
+    const [lessonCredits, setLessonCredits] = useState(0);
     const [loading, setLoading] = useState(true);
     const [hifzMap, setHifzMap] = useState({});
     const [showCertificate, setShowCertificate] = useState(false);
+    const [reschedulingBooking, setReschedulingBooking] = useState(null);
+    const [rescheduleDate, setRescheduleDate] = useState('');
+    const [rescheduleTime, setRescheduleTime] = useState('');
+    const [rescheduleError, setRescheduleError] = useState('');
+    const [rescheduleSaving, setRescheduleSaving] = useState(false);
 
     const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local Time';
 
@@ -89,8 +108,89 @@ const StudentDashboard = () => {
             fetchUpcomingBookings(),
             fetchGamificationData(),
             fetchActiveSessions(),
+            fetchLessonCredits(),
         ]);
         setLoading(false);
+    };
+
+    const fetchLessonCredits = async () => {
+        try {
+            const info = await api.credits.getForStudent(student.id);
+            setLessonCredits(info?.balance || 0);
+        } catch {
+            // Non-blocking
+        }
+    };
+
+    const openRescheduleModal = (booking) => {
+        setReschedulingBooking(booking);
+        setRescheduleDate(booking.booking_date || getLocalToday());
+        setRescheduleTime((booking.start_time || '09:00').slice(0, 5));
+        setRescheduleError('');
+    };
+
+    const handleConfirmReschedule = async (e) => {
+        e.preventDefault();
+        if (!reschedulingBooking || !rescheduleDate || !rescheduleTime) return;
+        setRescheduleError('');
+
+        const newStartMs = new Date(`${rescheduleDate}T${rescheduleTime}:00`).getTime();
+        if (newStartMs - Date.now() < 2 * 60 * 60 * 1000) {
+            setRescheduleError('Please choose a time at least 2 hours from now.');
+            return;
+        }
+
+        setRescheduleSaving(true);
+        try {
+            const tutorId = reschedulingBooking.tutor_id || reschedulingBooking.tutors?.id;
+            if (tutorId) {
+                const blocked = await api.blackoutDates.getByTutorId(tutorId);
+                const holiday = blocked.find((b) => b.date === rescheduleDate);
+                if (holiday) {
+                    setRescheduleError(`Tutor is unavailable on ${rescheduleDate} (${holiday.reason || 'Holiday'}).`);
+                    setRescheduleSaving(false);
+                    return;
+                }
+            }
+
+            // Preserve original session duration
+            const [oldSH, oldSM] = (reschedulingBooking.start_time || '09:00').slice(0, 5).split(':').map(Number);
+            const [oldEH, oldEM] = (reschedulingBooking.end_time || '10:00').slice(0, 5).split(':').map(Number);
+            const durationMins = Math.max(30, (oldEH * 60 + oldEM) - (oldSH * 60 + oldSM));
+
+            const [newH, newM] = rescheduleTime.split(':').map(Number);
+            const endTotal = newH * 60 + newM + durationMins;
+            const newEndTime = `${String(Math.floor(endTotal / 60) % 24).padStart(2, '0')}:${String(endTotal % 60).padStart(2, '0')}`;
+
+            const { error } = await api.bookings.update(reschedulingBooking.id, {
+                booking_date: rescheduleDate,
+                start_time: rescheduleTime,
+                end_time: newEndTime,
+                status: 'pending',
+                notes: `${reschedulingBooking.notes ? `${reschedulingBooking.notes} | ` : ''}Rescheduled by student`,
+            });
+            if (error) throw error;
+
+            // Notify tutor/admin non-blocking
+            const adminEmail = await api.settings.getAdminEmail();
+            const recipient = reschedulingBooking.tutors?.email || adminEmail;
+            api.email.send('booking_created_teacher', recipient, {
+                teacherName: reschedulingBooking.tutors?.name || 'Tutor',
+                studentName: student?.full_name || 'Student',
+                date: `${rescheduleDate} (Rescheduled)`,
+                startTime: rescheduleTime,
+                endTime: newEndTime,
+                subject: reschedulingBooking.tutors?.subject || 'Tutoring Session',
+                dashboardUrl: `${window.location.origin}/teacher/dashboard?tab=bookings`,
+            }).catch(() => {});
+
+            setReschedulingBooking(null);
+            await fetchUpcomingBookings();
+        } catch (err) {
+            setRescheduleError(err?.message || 'Could not reschedule session.');
+        } finally {
+            setRescheduleSaving(false);
+        }
     };
 
     const fetchActiveSessions = async () => {
@@ -217,41 +317,50 @@ const StudentDashboard = () => {
                         )}
 
                         {/* Stats Overview */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                            <div className="bg-white rounded-lg shadow p-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                            <div className="bg-white rounded-lg shadow p-5">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">Total Stars</p>
                                         <p className="text-3xl font-bold text-yellow-500">{studentStars}</p>
                                     </div>
-                                    <Sparkles className="h-12 w-12 text-yellow-400" />
+                                    <Sparkles className="h-10 w-10 text-yellow-400" />
                                 </div>
                             </div>
-                            <div className="bg-white rounded-lg shadow p-6">
+                            <div className="bg-white rounded-lg shadow p-5">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-600">Lesson Credits</p>
+                                        <p className="text-3xl font-bold text-emerald-600">{lessonCredits}</p>
+                                    </div>
+                                    <Coins className="h-10 w-10 text-emerald-500" />
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-lg shadow p-5">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">Completed</p>
                                         <p className="text-3xl font-bold text-gray-900">{completedLessons}</p>
                                     </div>
-                                    <CheckCircle className="h-12 w-12 text-green-500" />
+                                    <CheckCircle className="h-10 w-10 text-green-500" />
                                 </div>
                             </div>
-                            <div className="bg-white rounded-lg shadow p-6">
+                            <div className="bg-white rounded-lg shadow p-5">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">Surahs Mastered</p>
                                         <p className="text-3xl font-bold text-emerald-600">{masteredSurahsCount}/{JUZ_AMMA_SURAHS.length}</p>
                                     </div>
-                                    <Book className="h-12 w-12 text-emerald-500" />
+                                    <Book className="h-10 w-10 text-emerald-500" />
                                 </div>
                             </div>
-                            <div className="bg-white rounded-lg shadow p-6">
+                            <div className="bg-white rounded-lg shadow p-5">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">Upcoming ({inProgressLessons} active)</p>
                                         <p className="text-3xl font-bold text-gray-900">{upcomingBookings.length}</p>
                                     </div>
-                                    <Calendar className="h-12 w-12 text-purple-500" />
+                                    <Calendar className="h-10 w-10 text-purple-500" />
                                 </div>
                             </div>
                         </div>
@@ -478,7 +587,20 @@ const StudentDashboard = () => {
                                                         <p className="font-medium text-gray-900">{new Date(booking.booking_date).toLocaleDateString()}</p>
                                                         <p className="text-sm text-gray-600">{booking.start_time} - {booking.end_time}</p>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex flex-wrap items-center justify-end gap-2">
+                                                        {canRescheduleBooking(booking) ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openRescheduleModal(booking)}
+                                                                className="text-xs bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1.5 rounded-lg font-semibold hover:bg-amber-100 inline-flex items-center gap-1"
+                                                            >
+                                                                <RefreshCw size={12} /> Reschedule
+                                                            </button>
+                                                        ) : (
+                                                            <span className="text-[11px] text-gray-400 italic">
+                                                                &lt;12h to start
+                                                            </span>
+                                                        )}
                                                         <a
                                                             href={buildStudentCalendarUrl(booking)}
                                                             target="_blank"
@@ -506,6 +628,65 @@ const StudentDashboard = () => {
                     </div>
                 )}
             </div>
+
+            {/* Reschedule Session Modal */}
+            {reschedulingBooking && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+                        <button
+                            type="button"
+                            onClick={() => setReschedulingBooking(null)}
+                            className="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-gray-600 rounded-full"
+                        >
+                            <X size={18} />
+                        </button>
+                        <h3 className="text-lg font-bold text-gray-900 mb-1">Reschedule Session</h3>
+                        <p className="text-xs text-gray-500 mb-5">
+                            With <strong>{reschedulingBooking.tutors?.name}</strong>. Your tutor will be notified to re-confirm the new time.
+                        </p>
+                        {rescheduleError && (
+                            <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+                                {rescheduleError}
+                            </div>
+                        )}
+                        <form onSubmit={handleConfirmReschedule} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">New Date</label>
+                                <input
+                                    type="date"
+                                    required
+                                    min={getLocalToday()}
+                                    value={rescheduleDate}
+                                    onChange={(e) => setRescheduleDate(e.target.value)}
+                                    className="w-full rounded-lg border border-gray-300 p-2.5 text-sm focus:border-primary focus:ring-primary"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">New Start Time ({userTimezone})</label>
+                                <input
+                                    type="time"
+                                    required
+                                    value={rescheduleTime}
+                                    onChange={(e) => setRescheduleTime(e.target.value)}
+                                    className="w-full rounded-lg border border-gray-300 p-2.5 text-sm focus:border-primary focus:ring-primary"
+                                />
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setReschedulingBooking(null)}
+                                    className="px-4 py-2 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <Button type="submit" variant="primary" disabled={rescheduleSaving} className="text-xs">
+                                    {rescheduleSaving ? 'Saving...' : 'Confirm New Time'}
+                                </Button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Printable Certificate of Excellence Modal */}
             {showCertificate && (

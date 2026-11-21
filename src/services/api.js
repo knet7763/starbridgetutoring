@@ -266,12 +266,12 @@ export const api = {
             .order('booking_date', { ascending: false }),
         getUpcoming: (studentId, today) => supabase
             .from('bookings')
-            .select('*, tutors:tutor_id(name, subject)')
+            .select('*, tutors:tutor_id(id, name, subject, email)')
             .eq('student_id', studentId)
             .gte('booking_date', today)
             .in('status', ['pending', 'confirmed'])
             .order('booking_date', { ascending: true })
-            .limit(3),
+            .limit(10),
         getTakenSlots: (tutorId, date) => supabase
             .from('bookings')
             .select('start_time, end_time')
@@ -620,6 +620,82 @@ The classroom whiteboard is centered on the theme **"${slideTitle || 'Interactiv
                 updated_at: new Date().toISOString(),
             }));
             return supabase.from('app_settings').upsert(rows, { onConflict: 'key' });
+        },
+    },
+    students: {
+        getAll: () => supabase.from('student_profiles').select('*').order('created_at', { ascending: false }),
+    },
+    credits: {
+        getAll: async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', 'student_lesson_credits')
+                    .maybeSingle();
+                if (!error && data?.value) {
+                    return JSON.parse(data.value);
+                }
+            } catch (err) {
+                console.warn('[credits.getAll] Parse/fetch warning:', err);
+            }
+            return {};
+        },
+        getForStudent: async (studentId) => {
+            if (!studentId) return { balance: 0, note: '' };
+            const all = await api.credits.getAll();
+            return all[studentId] || { balance: 0, note: '' };
+        },
+        setForStudent: async (studentId, balance, note = '') => {
+            const all = await api.credits.getAll();
+            const safeBalance = Math.max(0, Number(balance) || 0);
+            all[studentId] = {
+                balance: safeBalance,
+                note: note !== undefined ? note : (all[studentId]?.note || ''),
+                updated_at: new Date().toISOString(),
+            };
+            const { error } = await supabase
+                .from('app_settings')
+                .upsert([{ key: 'student_lesson_credits', value: JSON.stringify(all), updated_at: new Date().toISOString() }], { onConflict: 'key' });
+            return { data: all[studentId], error };
+        },
+        adjustForStudent: async (studentId, delta, note) => {
+            const all = await api.credits.getAll();
+            const current = all[studentId]?.balance || 0;
+            const nextBalance = Math.max(0, current + delta);
+            const nextNote = note !== undefined ? note : (all[studentId]?.note || '');
+            return api.credits.setForStudent(studentId, nextBalance, nextNote);
+        },
+    },
+    blackoutDates: {
+        getAll: async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', 'tutor_blackout_dates')
+                    .maybeSingle();
+                if (!error && data?.value) {
+                    return JSON.parse(data.value);
+                }
+            } catch (err) {
+                console.warn('[blackoutDates.getAll] Parse/fetch warning:', err);
+            }
+            return {};
+        },
+        getByTutorId: async (tutorId) => {
+            if (!tutorId) return [];
+            const all = await api.blackoutDates.getAll();
+            return Array.isArray(all[tutorId]) ? all[tutorId] : [];
+        },
+        saveForTutor: async (tutorId, datesList) => {
+            const all = await api.blackoutDates.getAll();
+            const sorted = [...datesList].sort((a, b) => a.date.localeCompare(b.date));
+            all[tutorId] = sorted;
+            const { error } = await supabase
+                .from('app_settings')
+                .upsert([{ key: 'tutor_blackout_dates', value: JSON.stringify(all), updated_at: new Date().toISOString() }], { onConflict: 'key' });
+            return { data: sorted, error };
         },
     },
 };

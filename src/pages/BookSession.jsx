@@ -51,6 +51,8 @@ const BookSession = () => {
     const navigate = useNavigate();
     const [tutor, setTutor] = useState(null);
     const [availability, setAvailability] = useState([]);
+    const [blackoutDates, setBlackoutDates] = useState([]);
+    const [blackoutReason, setBlackoutReason] = useState('');
     const [selectedDate, setSelectedDate] = useState('');
     const [durationMinutes, setDurationMinutes] = useState(60);
     const [repeatWeeks, setRepeatWeeks] = useState(1);
@@ -76,7 +78,11 @@ const BookSession = () => {
             }
             setTutor(tutorData);
 
-            const { data: availData, error: availError } = await api.tutorAvailability.getByTutorId(tutorId);
+            const [{ data: availData, error: availError }, blocked] = await Promise.all([
+                api.tutorAvailability.getByTutorId(tutorId),
+                api.blackoutDates.getByTutorId(tutorId),
+            ]);
+            setBlackoutDates(blocked || []);
             if (availError) {
                 console.error('Error fetching availability:', availError);
                 setAvailability([]);
@@ -102,8 +108,17 @@ const BookSession = () => {
         setSlotsLoading(true);
         setSelectedSlot(null);
         setBookingError('');
+        setBlackoutReason('');
 
         try {
+            // Check holiday / blackout date overrides first
+            const blockedMatch = blackoutDates.find((b) => b.date === date);
+            if (blockedMatch) {
+                setBlackoutReason(blockedMatch.reason || 'Holiday / Tutor Unavailable');
+                setAvailableSlots([]);
+                return;
+            }
+
             // Parse at local noon so negative UTC offsets never shift to the previous weekday
             const dayOfWeek = new Date(`${date}T12:00:00`).getDay();
             const schedule = availability.find((s) => s.day_of_week === dayOfWeek);
@@ -151,7 +166,7 @@ const BookSession = () => {
         } finally {
             setSlotsLoading(false);
         }
-    }, [availability, tutorId]);
+    }, [availability, blackoutDates, tutorId]);
 
     useEffect(() => {
         if (selectedDate && availability.length > 0) {
@@ -180,6 +195,11 @@ const BookSession = () => {
             const skippedDates = [];
 
             for (const dateStr of targetDates) {
+                const isBlocked = blackoutDates.some((b) => b.date === dateStr);
+                if (isBlocked) {
+                    skippedDates.push(`${dateStr} (holiday)`);
+                    continue;
+                }
                 const { data: dayBookings } = await api.bookings.getTakenSlots(tutorId, dateStr);
                 const conflict = (dayBookings || []).some((b) => {
                     const bStart = toMinutes(b.start_time) - BUFFER_MINUTES;
@@ -404,6 +424,10 @@ const BookSession = () => {
                                                     </button>
                                                 ))}
                                             </div>
+                                        ) : blackoutReason ? (
+                                            <p className="text-sm text-amber-800 font-medium bg-amber-50 p-3 rounded-lg border border-amber-200">
+                                                Tutor is unavailable on this date ({blackoutReason}). Please choose another day.
+                                            </p>
                                         ) : (
                                             <p className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded-lg border border-gray-200">
                                                 No available slots on this date (note: same-day bookings require at least 2 hours advance notice).

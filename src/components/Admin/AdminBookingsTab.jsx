@@ -46,12 +46,23 @@ const AdminBookingsTab = ({ bookings, loading, fetchBookings }) => {
         }
     };
 
-    const handleUpdateStatus = async (bookingId, status) => {
+    const handleUpdateStatus = async (booking, status) => {
         if (status === 'cancelled' && !window.confirm('Cancel this booking?')) return;
-        setBusyId(bookingId);
+        setBusyId(booking.id);
         try {
-            const { error } = await api.bookings.update(bookingId, { status });
+            const { error } = await api.bookings.update(booking.id, { status });
             if (error) throw error;
+            // Auto-deduct 1 lesson credit when a session is marked completed
+            if (status === 'completed' && booking.student_id) {
+                const creditInfo = await api.credits.getForStudent(booking.student_id);
+                if (creditInfo.balance > 0) {
+                    await api.credits.adjustForStudent(
+                        booking.student_id,
+                        -1,
+                        `Completed session on ${booking.booking_date}`
+                    );
+                }
+            }
             await fetchBookings();
         } catch (err) {
             alert('Failed to update booking: ' + (err?.message || 'Unknown error'));
@@ -202,7 +213,7 @@ const AdminBookingsTab = ({ bookings, loading, fetchBookings }) => {
                                             <button
                                                 type="button"
                                                 disabled={isBusy}
-                                                onClick={() => handleUpdateStatus(booking.id, 'completed')}
+                                                onClick={() => handleUpdateStatus(booking, 'completed')}
                                                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold disabled:opacity-50"
                                             >
                                                 <CheckCircle size={14} />
@@ -214,7 +225,7 @@ const AdminBookingsTab = ({ bookings, loading, fetchBookings }) => {
                                         <button
                                             type="button"
                                             disabled={isBusy}
-                                            onClick={() => handleUpdateStatus(booking.id, 'cancelled')}
+                                            onClick={() => handleUpdateStatus(booking, 'cancelled')}
                                             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold disabled:opacity-50"
                                         >
                                             <XCircle size={14} />

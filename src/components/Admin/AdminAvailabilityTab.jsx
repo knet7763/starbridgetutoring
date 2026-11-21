@@ -1,17 +1,56 @@
 import React, { useState, useEffect } from 'react';
+import { CalendarOff, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../services/api';
 import Button from '../Button';
 
 const AdminAvailabilityTab = ({ tutors }) => {
     const [selectedTutorForAvailability, setSelectedTutorForAvailability] = useState(null);
     const [availabilityForm, setAvailabilityForm] = useState([]);
     const [savingAvailability, setSavingAvailability] = useState(false);
+    const [blackoutDates, setBlackoutDates] = useState([]);
+    const [newBlackoutDate, setNewBlackoutDate] = useState('');
+    const [newBlackoutReason, setNewBlackoutReason] = useState('');
+    const [savingBlackout, setSavingBlackout] = useState(false);
 
     useEffect(() => {
         if (selectedTutorForAvailability) {
             fetchAvailability(selectedTutorForAvailability.id);
+            api.blackoutDates.getByTutorId(selectedTutorForAvailability.id).then(setBlackoutDates);
         }
     }, [selectedTutorForAvailability]);
+
+    const handleAddBlackoutDate = async (e) => {
+        e.preventDefault();
+        if (!selectedTutorForAvailability || !newBlackoutDate) return;
+        if (blackoutDates.some((d) => d.date === newBlackoutDate)) {
+            alert('That date is already blocked for this tutor.');
+            return;
+        }
+        setSavingBlackout(true);
+        const updated = [
+            ...blackoutDates,
+            { date: newBlackoutDate, reason: newBlackoutReason.trim() || 'Holiday / Unavailable' },
+        ];
+        const { data, error } = await api.blackoutDates.saveForTutor(selectedTutorForAvailability.id, updated);
+        if (!error) {
+            setBlackoutDates(data || updated);
+            setNewBlackoutDate('');
+            setNewBlackoutReason('');
+        } else {
+            alert('Failed to save blackout date: ' + error.message);
+        }
+        setSavingBlackout(false);
+    };
+
+    const handleRemoveBlackoutDate = async (dateStr) => {
+        if (!selectedTutorForAvailability) return;
+        setSavingBlackout(true);
+        const updated = blackoutDates.filter((d) => d.date !== dateStr);
+        const { data, error } = await api.blackoutDates.saveForTutor(selectedTutorForAvailability.id, updated);
+        if (!error) setBlackoutDates(data || updated);
+        setSavingBlackout(false);
+    };
 
     const fetchAvailability = async (tutorId) => {
         const { data, error } = await supabase
@@ -155,6 +194,79 @@ const AdminAvailabilityTab = ({ tutors }) => {
                                 </div>
                             ))}
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {selectedTutorForAvailability && (
+                <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg border border-gray-200">
+                    <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
+                        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                            <CalendarOff className="h-5 w-5 text-amber-600" />
+                            Holiday & Blackout Dates for {selectedTutorForAvailability.name}
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-1">
+                            Block specific dates (Eid, public holidays, sick days) without changing the recurring weekly schedule.
+                        </p>
+                    </div>
+                    <div className="p-6 space-y-5">
+                        <form onSubmit={handleAddBlackoutDate} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                            <div className="sm:col-span-4">
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Date to Block *</label>
+                                <input
+                                    type="date"
+                                    required
+                                    value={newBlackoutDate}
+                                    onChange={(e) => setNewBlackoutDate(e.target.value)}
+                                    className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-primary focus:ring-primary"
+                                />
+                            </div>
+                            <div className="sm:col-span-5">
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Reason (Optional)</label>
+                                <input
+                                    type="text"
+                                    value={newBlackoutReason}
+                                    onChange={(e) => setNewBlackoutReason(e.target.value)}
+                                    placeholder="e.g., Eid Holiday, Travel, Personal Day"
+                                    className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-primary focus:ring-primary"
+                                />
+                            </div>
+                            <div className="sm:col-span-3">
+                                <Button
+                                    type="submit"
+                                    variant="primary"
+                                    disabled={savingBlackout || !newBlackoutDate}
+                                    className="w-full justify-center inline-flex items-center gap-1.5"
+                                >
+                                    <Plus size={16} />
+                                    Block Date
+                                </Button>
+                            </div>
+                        </form>
+
+                        {blackoutDates.length === 0 ? (
+                            <p className="text-sm text-gray-400 italic">No blackout dates set for this tutor.</p>
+                        ) : (
+                            <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
+                                {blackoutDates.map((item) => (
+                                    <div key={item.date} className="flex items-center justify-between px-4 py-3 bg-amber-50/40">
+                                        <div>
+                                            <span className="font-bold text-sm text-gray-900">{item.date}</span>
+                                            <span className="ml-3 text-xs text-gray-600">{item.reason}</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            disabled={savingBlackout}
+                                            onClick={() => handleRemoveBlackoutDate(item.date)}
+                                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                            title="Unblock date"
+                                        >
+                                            <Trash2 size={15} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

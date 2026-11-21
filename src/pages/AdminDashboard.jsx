@@ -2,15 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, Users, FileText, LogOut, Clock, Calendar, Play, Copy, CheckCheck, XCircle, Settings, Save, GraduationCap, CalendarCheck } from 'lucide-react';
+import { BookOpen, Users, FileText, LogOut, Clock, Calendar, Play, Copy, CheckCheck, XCircle, Settings, Save, GraduationCap, CalendarCheck, Coins } from 'lucide-react';
 import AdminTutorsTab from '../components/Admin/AdminTutorsTab';
 import AdminClassesTab from '../components/Admin/AdminClassesTab';
 import AdminBookingsTab from '../components/Admin/AdminBookingsTab';
+import AdminCreditsTab from '../components/Admin/AdminCreditsTab';
 import AdminLessonsTab from '../components/Admin/AdminLessonsTab';
 import AdminAvailabilityTab from '../components/Admin/AdminAvailabilityTab';
 import TeacherTrialsTab from '../components/Teacher/TeacherTrialsTab';
 
-const VALID_ADMIN_TABS = ['tutors', 'classes', 'bookings', 'lessons', 'availability', 'trials', 'settings'];
+const VALID_ADMIN_TABS = ['tutors', 'classes', 'bookings', 'credits', 'lessons', 'availability', 'trials', 'settings'];
 
 const AdminDashboard = () => {
     const { user, signOut } = useAuth();
@@ -233,6 +234,16 @@ const AdminDashboard = () => {
                             Bookings ({bookings.length})
                         </button>
                         <button
+                            onClick={() => handleTabChange('credits')}
+                            className={`${activeTab === 'credits'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+                        >
+                            <Coins className="h-5 w-5 mr-2" />
+                            Credits
+                        </button>
+                        <button
                             onClick={() => handleTabChange('lessons')}
                             className={`${activeTab === 'lessons'
                                 ? 'border-primary text-primary'
@@ -285,6 +296,9 @@ const AdminDashboard = () => {
                     )}
                     {activeTab === 'bookings' && (
                         <AdminBookingsTab bookings={bookings} loading={loading} fetchBookings={fetchBookings} />
+                    )}
+                    {activeTab === 'credits' && (
+                        <AdminCreditsTab />
                     )}
                     {activeTab === 'lessons' && (
                         <AdminLessonsTab lessons={lessons} loading={loading} fetchLessons={fetchLessons} />
