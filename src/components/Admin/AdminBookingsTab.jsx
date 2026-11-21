@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, Video, CheckCircle, XCircle, Mail, Trash2, RefreshCw } from 'lucide-react';
+import { Calendar, Clock, Video, CheckCircle, XCircle, Mail, Trash2, RefreshCw, MessageCircle } from 'lucide-react';
 import { api } from '../../services/api';
 
 const STATUS_FILTERS = ['all', 'pending', 'confirmed', 'completed', 'cancelled'];
@@ -69,6 +69,23 @@ const AdminBookingsTab = ({ bookings, loading, fetchBookings }) => {
         } finally {
             setBusyId(null);
         }
+    };
+
+    const handleWhatsAppReminder = (booking) => {
+        const meetingUrl = `${window.location.origin}/meeting/${booking.id}`;
+        const studentName = booking.students?.full_name || 'your child';
+        const tutorName = booking.tutors?.name || 'your tutor';
+        const timeRange = `${booking.start_time?.slice(0, 5)} - ${booking.end_time?.slice(0, 5)}`;
+        const text = encodeURIComponent(
+            `Assalamu Alaikum! Friendly reminder from StarBridge Tutoring:\n\n` +
+            `Student: ${studentName}\n` +
+            `Tutor: ${tutorName}\n` +
+            `Date: ${booking.booking_date}\n` +
+            `Time: ${timeRange}\n` +
+            (booking.status === 'confirmed' ? `\nJoin Classroom: ${meetingUrl}\n` : '') +
+            `\nSee you in class!`
+        );
+        window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
     };
 
     const handleDelete = async (bookingId) => {
@@ -202,6 +219,15 @@ const AdminBookingsTab = ({ bookings, loading, fetchBookings }) => {
                                     )}
                                     {booking.status === 'confirmed' && (
                                         <>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleWhatsAppReminder(booking)}
+                                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold"
+                                                title="Send 1-click WhatsApp class reminder"
+                                            >
+                                                <MessageCircle size={14} />
+                                                WhatsApp Reminder
+                                            </button>
                                             <button
                                                 type="button"
                                                 onClick={() => navigate(`/meeting/${booking.id}`)}

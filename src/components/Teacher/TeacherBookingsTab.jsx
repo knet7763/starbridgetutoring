@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { Loader2, Calendar as CalendarIcon, Clock, User, Check, X, Video, Bell } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Clock, User, Check, X, Video, Bell, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const buildGoogleCalendarUrl = (booking, studentName) => {
@@ -101,6 +101,19 @@ const TeacherBookingsTab = ({ user }) => {
         }
     };
 
+    const handleWhatsAppReminder = (booking) => {
+        const meetingUrl = `${window.location.origin}/meeting/${booking.id}`;
+        const studentName = booking.students?.full_name || 'your child';
+        const text = encodeURIComponent(
+            `Assalamu Alaikum! Reminder for ${studentName}'s upcoming StarBridge Tutoring session:\n\n` +
+            `Date: ${booking.booking_date}\n` +
+            `Time: ${booking.start_time?.slice(0, 5)} - ${booking.end_time?.slice(0, 5)}\n` +
+            `Join Classroom: ${meetingUrl}\n\n` +
+            `See you in class!`
+        );
+        window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
+    };
+
     if (loading) {
         return (
             <div className="flex justify-center p-12">
@@ -186,6 +199,14 @@ const TeacherBookingsTab = ({ user }) => {
                                         <Bell size={14} />
                                     )}
                                     {reminderSentIds[booking.id] ? 'Reminder Sent ✓' : 'Remind Student'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleWhatsAppReminder(booking)}
+                                    className="px-3.5 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 flex items-center justify-center gap-1.5"
+                                    title="Send 1-click WhatsApp class reminder"
+                                >
+                                    <MessageCircle size={14} /> WhatsApp
                                 </button>
                                 <a
                                     href={buildGoogleCalendarUrl(booking, booking.students?.full_name || 'Student')}

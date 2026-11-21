@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Coins, Plus, Minus, Search, RefreshCw, UserCheck } from 'lucide-react';
+import { Coins, Plus, Minus, Search, RefreshCw, UserCheck, MessageCircle, FileText, Mail, X } from 'lucide-react';
 import { api } from '../../services/api';
 
 const AdminCreditsTab = () => {
@@ -9,6 +9,9 @@ const AdminCreditsTab = () => {
     const [search, setSearch] = useState('');
     const [busyId, setBusyId] = useState(null);
     const [noteInputs, setNoteInputs] = useState({});
+    const [reportStudent, setReportStudent] = useState(null);
+    const [reportTopics, setReportTopics] = useState('');
+    const [reportHomework, setReportHomework] = useState('');
 
     const loadData = async () => {
         setLoading(true);
@@ -41,6 +44,51 @@ const AdminCreditsTab = () => {
         } finally {
             setBusyId(null);
         }
+    };
+
+    const handleSendRenewalWhatsApp = (studentObj, balance) => {
+        const text = encodeURIComponent(
+            `Assalamu Alaikum! Quick update from StarBridge Tutoring:\n\n` +
+            `${studentObj.full_name || 'Your child'} currently has ${balance} lesson ${balance === 1 ? 'credit' : 'credits'} remaining.\n\n` +
+            `To keep their weekly schedule uninterrupted, please reply whenever you're ready to renew their package (Starter 4 classes, Standard 8 classes, or Premium 12 classes).\n\n` +
+            `JazakAllahu Khayran,\nStarBridge Tutoring Team`
+        );
+        window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
+    };
+
+    const openReportModal = (studentObj) => {
+        setReportStudent(studentObj);
+        setReportTopics('');
+        setReportHomework('');
+    };
+
+    const buildProgressReportText = () => {
+        if (!reportStudent) return '';
+        const balance = creditsMap[reportStudent.id]?.balance || 0;
+        const stars = reportStudent.stars || 0;
+        return (
+            `Assalamu Alaikum! Weekly Progress Report from StarBridge Tutoring\n\n` +
+            `Student: ${reportStudent.full_name || 'Student'} (${reportStudent.grade_level || 'Enrolled'})\n` +
+            `Stars Earned: ${stars} ⭐\n` +
+            `Remaining Lesson Credits: ${balance}\n` +
+            (reportTopics.trim() ? `\nTopics / Surahs Covered:\n${reportTopics.trim()}\n` : '') +
+            (reportHomework.trim() ? `\nNext Practice / Homework:\n${reportHomework.trim()}\n` : '') +
+            `\nThank you for trusting StarBridge Tutoring! View full progress anytime at https://starbridgetutors.com/student/dashboard`
+        );
+    };
+
+    const handleSendReportWhatsApp = () => {
+        const text = encodeURIComponent(buildProgressReportText());
+        window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
+        setReportStudent(null);
+    };
+
+    const handleSendReportEmail = () => {
+        const recipient = reportStudent?.parent_email || reportStudent?.email || '';
+        const subject = encodeURIComponent(`Weekly Progress Report — ${reportStudent?.full_name || 'Student'} (StarBridge Tutoring)`);
+        const body = encodeURIComponent(buildProgressReportText());
+        window.location.href = `mailto:${recipient}?subject=${subject}&body=${body}`;
+        setReportStudent(null);
     };
 
     const filteredStudents = students.filter((s) => {
@@ -178,11 +226,95 @@ const AdminCreditsTab = () => {
                                         >
                                             +12 Premium
                                         </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => openReportModal(s)}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold"
+                                            title="Send weekly parent progress report"
+                                        >
+                                            <FileText size={12} />
+                                            Parent Report
+                                        </button>
+                                        {lowBalance && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSendRenewalWhatsApp(s, creditInfo.balance)}
+                                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold"
+                                                title="Send low-credit renewal reminder via WhatsApp"
+                                            >
+                                                <MessageCircle size={12} />
+                                                Renewal Alert
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {reportStudent && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
+                        <button
+                            type="button"
+                            onClick={() => setReportStudent(null)}
+                            className="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-gray-600 rounded-full"
+                        >
+                            <X size={18} />
+                        </button>
+                        <h3 className="text-lg font-bold text-gray-900 mb-1">
+                            Weekly Parent Progress Report
+                        </h3>
+                        <p className="text-xs text-gray-500 mb-4">
+                            For <strong>{reportStudent.full_name}</strong> • {creditsMap[reportStudent.id]?.balance || 0} credits remaining • {reportStudent.stars || 0} stars earned
+                        </p>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                    Topics / Surahs Covered This Week
+                                </label>
+                                <textarea
+                                    rows={3}
+                                    value={reportTopics}
+                                    onChange={(e) => setReportTopics(e.target.value)}
+                                    placeholder="e.g., Completed Surah Al-Mulk Ayahs 1-10 with strong Tajweed pronunciation; practiced Algebra linear equations."
+                                    className="w-full rounded-lg border border-gray-300 p-2.5 text-sm focus:border-primary focus:ring-primary"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                    Next Practice / Homework (Optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={reportHomework}
+                                    onChange={(e) => setReportHomework(e.target.value)}
+                                    placeholder="e.g., Revise Ayahs 1-10 daily for 10 minutes before Thursday's class."
+                                    className="w-full rounded-lg border border-gray-300 p-2.5 text-sm focus:border-primary focus:ring-primary"
+                                />
+                            </div>
+                            <div className="flex flex-wrap justify-end gap-2 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={handleSendReportEmail}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-xs font-bold text-gray-700"
+                                >
+                                    <Mail size={14} />
+                                    Send via Email
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSendReportWhatsApp}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white"
+                                >
+                                    <MessageCircle size={14} />
+                                    Send via WhatsApp
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
