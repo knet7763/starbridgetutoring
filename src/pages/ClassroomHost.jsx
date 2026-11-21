@@ -47,6 +47,13 @@ const ClassroomHost = () => {
     const [collabMode, setCollabMode] = useState(false);
     const [raisedHands, setRaisedHands] = useState([]);
     const sessionChannelRef = useRef(null);
+    const slidesRef = useRef([]);
+    const currentSlideIndexRef = useRef(0);
+    const collabModeRef = useRef(false);
+
+    useEffect(() => { slidesRef.current = slides; }, [slides]);
+    useEffect(() => { currentSlideIndexRef.current = currentSlideIndex; }, [currentSlideIndex]);
+    useEffect(() => { collabModeRef.current = collabMode; }, [collabMode]);
 
     useEffect(() => {
         const fetchBadges = async () => {
@@ -222,6 +229,22 @@ const ClassroomHost = () => {
                     });
                 }
             })
+            // Respond to late-joining students with current slide & collab mode state
+            .on('broadcast', { event: 'student_sync_request' }, () => {
+                const activeSlide = slidesRef.current[currentSlideIndexRef.current];
+                if (activeSlide?.id) {
+                    participantChannel.send({
+                        type: 'broadcast',
+                        event: 'slide_change',
+                        payload: { slideId: activeSlide.id },
+                    }).catch(() => {});
+                }
+                participantChannel.send({
+                    type: 'broadcast',
+                    event: 'collab_mode',
+                    payload: { enabled: collabModeRef.current, silent: true },
+                }).catch(() => {});
+            })
             .subscribe();
 
         sessionChannelRef.current = participantChannel;
@@ -276,6 +299,14 @@ const ClassroomHost = () => {
     }, [leaveRoom]);
 
     const updateSessionSlide = async (slideId) => {
+        // Instant Realtime Broadcast so students switch slides in <50ms across all browsers
+        if (sessionChannelRef.current && slideId) {
+            sessionChannelRef.current.send({
+                type: 'broadcast',
+                event: 'slide_change',
+                payload: { slideId },
+            }).catch(() => {});
+        }
         try {
             await api.sessions.updateCurrentSlide(sessionId, slideId);
         } catch (error) {
@@ -339,6 +370,14 @@ const ClassroomHost = () => {
                 await Promise.all(progressPromises);
             }
 
+            if (sessionChannelRef.current) {
+                await sessionChannelRef.current.send({
+                    type: 'broadcast',
+                    event: 'session_ended',
+                    payload: { sessionId },
+                }).catch(() => {});
+            }
+
             await api.sessions.end(sessionId);
             await leaveRoom();
             navigate('/teacher/dashboard');
@@ -395,13 +434,13 @@ const ClassroomHost = () => {
         }
     };
 
-    if (loading) return <div className="flex justify-center items-center h-screen bg-gray-900 text-white">Loading Classroom...</div>;
+    if (loading) return <div className="flex justify-center items-center h-[100dvh] bg-gray-900 text-white">Loading Classroom...</div>;
     if (!session) return <div className="text-white text-center pt-20">Session not found</div>;
 
     const currentSlide = slides[currentSlideIndex];
 
     return (
-        <div className="h-screen flex flex-col bg-gray-900 text-white">
+        <div className="h-[100dvh] flex flex-col bg-gray-900 text-white overflow-hidden">
 
             {/* Raised Hands Notification Banner */}
             {raisedHands.length > 0 && (
@@ -557,8 +596,8 @@ const ClassroomHost = () => {
                             <FiqhStage currentSlide={currentSlide} />
                         ) : currentSlide?.type === 'image' || currentSlide?.type === 'blank' || !currentSlide?.type ? (
                             <Board
-                                key={currentSlide?.id}
-                                sessionId={sessionId}
+                                key={currentSlide?.id || 'default-board'}
+                                sessionId={currentSlide?.id ? `${sessionId}:${currentSlide.id}` : sessionId}
                                 readOnly={false}
                                 backgroundImage={currentSlide?.type === 'image' ? currentSlide.content?.url : null}
                                 initialSnapshot={currentSlide?.drawing_data}

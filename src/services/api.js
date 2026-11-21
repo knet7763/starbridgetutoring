@@ -119,8 +119,15 @@ export const api = {
         getByCode: (code) => supabase.from('active_sessions').select('id, is_active').eq('code', code).single(),
         start: async (data) => {
             try {
-                // Generate a session ID client-side if not provided
-                const sessionId = data.id || crypto.randomUUID();
+                // Generate a session ID client-side safely across all browsers (including older Safari/WebViews)
+                const sessionId = data.id || (
+                    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                        ? crypto.randomUUID()
+                        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                            const r = (Math.random() * 16) | 0;
+                            return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+                        })
+                );
                 const roomName = generateRoomName(sessionId);
                 
                 if (!roomName) {

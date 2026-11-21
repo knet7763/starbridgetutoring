@@ -187,20 +187,39 @@ const ClassroomStudent = () => {
                     })
                     .subscribe();
 
-                // Subscribe to teacher broadcast events (collab mode toggles & hand lower)
+                // Subscribe to teacher broadcast events (slide sync, collab mode toggles, hand lower, session end)
                 sessionChannel = supabase.channel(`session:${sessionId}`);
                 sessionChannel
+                    .on('broadcast', { event: 'slide_change' }, ({ payload }) => {
+                        if (payload?.slideId) {
+                            currentSlideIdRef.current = payload.slideId;
+                            setCurrentSlideId(payload.slideId);
+                        }
+                    })
+                    .on('broadcast', { event: 'session_ended' }, () => {
+                        setSessionEnded(true);
+                    })
                     .on('broadcast', { event: 'collab_mode' }, ({ payload }) => {
                         setCollabMode(!!payload?.enabled);
-                        setShowCollabBanner(true);
-                        setTimeout(() => setShowCollabBanner(false), 4000);
+                        if (!payload?.silent) {
+                            setShowCollabBanner(true);
+                            setTimeout(() => setShowCollabBanner(false), 4000);
+                        }
                     })
                     .on('broadcast', { event: 'hand_lowered' }, ({ payload }) => {
                         if (payload?.name === guestName) {
                             setHandRaised(false);
                         }
                     })
-                    .subscribe();
+                    .subscribe((status) => {
+                        if (status === 'SUBSCRIBED') {
+                            sessionChannel.send({
+                                type: 'broadcast',
+                                event: 'student_sync_request',
+                                payload: { name: guestName },
+                            }).catch(() => {});
+                        }
+                    });
 
                 sessionChannelRef.current = sessionChannel;
 
@@ -485,9 +504,9 @@ const ClassroomStudent = () => {
                 return (
                     <div className="w-full h-full flex items-center justify-center relative">
                         <Board
-                            key={currentSlide?.id}
+                            key={currentSlide?.id || 'default-board'}
                             className="w-full h-full"
-                            sessionId={sessionId}
+                            sessionId={currentSlide?.id ? `${sessionId}:${currentSlide.id}` : sessionId}
                             readOnly={!collabMode}
                             backgroundImage={currentSlide?.type === 'image' ? currentSlide.content?.url : null}
                             initialSnapshot={currentSlide?.drawing_data}
@@ -498,7 +517,7 @@ const ClassroomStudent = () => {
     };
 
     return (
-        <div className="h-screen flex flex-col bg-[#F3F4F6] font-sans relative">
+        <div className="h-[100dvh] flex flex-col bg-[#F3F4F6] font-sans relative overflow-hidden">
 
             {/* Offline Banner */}
             {!isOnline && (
@@ -571,8 +590,8 @@ const ClassroomStudent = () => {
                 )}
 
                 {/* Main Interactive Area */}
-                <main className="flex-1 relative p-4 sm:p-6 flex flex-col min-w-0 bg-[#F3F4F6]">
-                    <div className="flex-1 w-full max-w-6xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 relative mb-16">
+                <main className="flex-1 min-h-0 relative p-3 sm:p-6 flex flex-col min-w-0 bg-[#F3F4F6]">
+                    <div className="flex-1 min-h-0 w-full max-w-6xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 relative mb-16">
                         {/* Progress Bar */}
                         <div className="absolute top-0 left-0 right-0 z-20">
                             <div className="h-1.5 bg-gray-100">
